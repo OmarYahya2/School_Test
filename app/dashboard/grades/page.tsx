@@ -83,7 +83,40 @@ import {
 
 const ACADEMIC_YEARS = ["2024-2025", "2023-2024", "2022-2023"]
 const SEMESTERS = ["الفصل الأول", "الفصل الثاني", "الفصل الصيفي"]
+
+// Map Arabic semester to English database values
+const SEMESTER_MAP: Record<string, string> = {
+  "الفصل الأول": "first",
+  "الفصل الثاني": "second",
+  "الفصل الصيفي": "second"
+}
+
+// Map English database values to Arabic display values
+const SEMESTER_DISPLAY: Record<string, string> = {
+  "first": "الفصل الأول",
+  "second": "الفصل الثاني"
+}
+
 const EXAM_TYPES = ["كويز", "نصف الفصل", "أسايمنت (واجب)", "مشاريع", "امتحان نهائي", "اختبار قصير"]
+
+// Map Arabic exam types to English database values
+const EXAM_TYPE_MAP: Record<string, string> = {
+  "كويز": "quiz",
+  "اختبار قصير": "quiz",
+  "نصف الفصل": "exam",
+  "امتحان نهائي": "exam",
+  "أسايمنت (واجب)": "homework",
+  "مشاريع": "project"
+}
+
+// Map English database values to Arabic display values
+const EXAM_TYPE_DISPLAY: Record<string, string> = {
+  "quiz": "كويز",
+  "exam": "امتحان نهائي",
+  "homework": "أسايمنت (واجب)",
+  "project": "مشاريع"
+}
+
 const SUBJECTS = [
   "اللغة العربية",
   "الرياضيات",
@@ -168,11 +201,12 @@ export default function GradesPage() {
 
   // Get grades for student
   const getStudentGrades = (studentId: string) => {
+    const semesterDb = SEMESTER_MAP[selectedSemester] || "first"
     return grades.filter(
       (g) =>
         g.studentId === studentId &&
         g.academicYear === selectedYear &&
-        g.semester === selectedSemester
+        g.semester === semesterDb
     )
   }
 
@@ -208,27 +242,40 @@ export default function GradesPage() {
       return
     }
 
-    const created = await createGrade(
-      selectedStudent.id,
-      classFilterSubject,
-      gradeValue,
-      maxGradeValue,
-      selectedSemester,
-      selectedYear,
-      classFilterExamType,
-      classFilterTeacher,
-      newNotes.trim()
-    )
+    try {
+      console.log("Attempting to create grade...")
+      // Map Arabic values to English database values
+      const examTypeDb = EXAM_TYPE_MAP[classFilterExamType] || "exam"
+      const semesterDb = SEMESTER_MAP[selectedSemester] || "first"
+      console.log("Mapped exam type:", classFilterExamType, "->", examTypeDb)
+      console.log("Mapped semester:", selectedSemester, "->", semesterDb)
+      
+      const created = await createGrade(
+        selectedStudent.id,
+        classFilterSubject,
+        gradeValue,
+        maxGradeValue,
+        semesterDb, // Use the mapped English value
+        selectedYear,
+        examTypeDb, // Use the mapped English value
+        classFilterTeacher,
+        newNotes.trim()
+      )
 
-    if (!created) {
-      toast.error("حدث خطأ أثناء إضافة العلامة")
-      return
+      if (!created) {
+        console.error("createGrade returned null")
+        toast.error("فشل إضافة العلامة - قد تكون هناك مشكلة في الاتصال بقاعدة البيانات")
+        return
+      }
+
+      resetForm()
+      setAddGradeOpen(false)
+      void reload()
+      toast.success(`تمت إضافة العلامة بنجاح للطالب ${selectedStudent.name}`)
+    } catch (error) {
+      console.error("Error in handleAddGrade:", error)
+      toast.error("حدث خطأ غير متوقع أثناء إضافة العلامة")
     }
-
-    resetForm()
-    setAddGradeOpen(false)
-    void reload()
-    toast.success(`تمت إضافة العلامة بنجاح للطالب ${selectedStudent.name}`)
   }
 
   async function handleDeleteGrade(id: string) {
@@ -573,7 +620,8 @@ export default function GradesPage() {
                   studentGrades = studentGrades.filter(g => g.subject === classFilterSubject)
                 }
                 if (classFilterExamType !== "all") {
-                  studentGrades = studentGrades.filter(g => g.examType === classFilterExamType)
+                  const examTypeDb = EXAM_TYPE_MAP[classFilterExamType]
+                  studentGrades = studentGrades.filter(g => g.examType === examTypeDb)
                 }
                 const average = studentGrades.length > 0 
                   ? Math.round(studentGrades.reduce((sum, g) => sum + (g.grade / g.maxGrade) * 100, 0) / studentGrades.length)
@@ -643,7 +691,7 @@ export default function GradesPage() {
                                     </td>
                                     <td className="px-4 py-2 text-center">
                                       <Badge variant="outline" className="text-xs">
-                                        {grade.examType}
+                                        {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
                                       </Badge>
                                     </td>
                                     <td className="px-4 py-2 text-center">
@@ -980,7 +1028,7 @@ export default function GradesPage() {
                                   </td>
                                   <td className="px-4 py-2 text-center">
                                     <Badge variant="outline" className="text-xs">
-                                      {grade.examType}
+                                      {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
                                     </Badge>
                                   </td>
                                   <td className="px-4 py-2 text-center">
@@ -1156,7 +1204,7 @@ export default function GradesPage() {
                             </td>
                             <td className="px-4 py-2 text-center">
                               <Badge variant="outline" className="text-xs">
-                                {grade.examType}
+                                {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
                               </Badge>
                             </td>
                             <td className="px-4 py-2 text-center">
@@ -1309,7 +1357,7 @@ export default function GradesPage() {
                           </td>
                           <td className="px-4 py-2 text-center">
                             <Badge variant="outline" className="text-xs">
-                              {grade.examType}
+                              {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
                             </Badge>
                           </td>
                           <td className="px-4 py-2 text-center">

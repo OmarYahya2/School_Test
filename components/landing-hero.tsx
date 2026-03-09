@@ -201,15 +201,15 @@ export default function LandingHero() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <GraduationCap className="h-6 w-6 text-primary-foreground" />
+      {/* Header - Mobile Optimized */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm safe-area-top">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 md:px-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary">
+              <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-base font-bold text-foreground sm:text-lg">
+              <span className="text-sm sm:text-base font-bold text-foreground md:text-lg">
                 مدرسة كفر عقب
               </span>
               <p className="hidden text-xs text-muted-foreground sm:block">
@@ -221,55 +221,56 @@ export default function LandingHero() {
             <Link href="/login">
               <Button
                 variant="outline"
-                className="gap-2 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+                size="sm"
+                className="gap-1.5 sm:gap-2 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground touch-target-sm px-2.5 sm:px-3"
               >
                 <LogIn className="h-4 w-4" />
                 <span className="hidden sm:inline">دخول الإدارة</span>
-                <span className="sm:hidden">دخول</span>
+                <span className="sm:hidden text-xs">دخول</span>
               </Button>
             </Link>
           )}
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-4 py-16 sm:px-6 sm:py-20 overflow-hidden">
+      {/* Hero Section - Mobile Optimized */}
+      <section className="relative bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-3 py-8 sm:px-4 sm:py-12 md:px-6 md:py-16 lg:py-20 overflow-hidden">
         {/* Fun Background Pattern */}
         <div className="absolute inset-0 opacity-40">
           <div className="h-full w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0iIzNiODJmNiIgZmlsbC1vcGFjaXR5PSIwLjIiLz48L3N2Zz4=')] bg-repeat"></div>
         </div>
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-100 to-indigo-100 px-5 py-2.5 text-sm font-semibold text-indigo-600">
-            <GraduationCap className="h-5 w-5" />
+          <div className="mb-4 sm:mb-6 inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-sky-100 to-indigo-100 px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-indigo-600">
+            <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
             <span>موقع مدرستنا الرسمي</span>
           </div>
-          <h1 className="mb-6 text-4xl font-bold text-slate-800 text-balance sm:text-5xl lg:text-6xl leading-tight">
+          <h1 className="mb-4 sm:mb-6 text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-800 text-balance leading-tight">
             مدرسة كفر عقب
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-indigo-500">الأساسية المختلطة</span>
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-indigo-500 mt-1 sm:mt-2">الأساسية المختلطة</span>
           </h1>
-          <p className="mb-10 text-lg leading-relaxed text-slate-600 text-pretty sm:text-xl max-w-2xl mx-auto">
+          <p className="mb-6 sm:mb-8 md:mb-10 text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed text-slate-600 text-pretty max-w-2xl mx-auto px-2 sm:px-0">
             نرحب بكم في موقع مدرستنا. نسعى لتقديم بيئة تعليمية متميزة لأبنائنا
             الطلبة من الصف الأول حتى الصف التاسع.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-8 text-sm">
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-              <Users className="h-5 w-5 text-sky-500" />
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 md:gap-8 text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-sm">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
               <span className="font-medium text-slate-700">9 صفوف دراسية</span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-              <BookOpen className="h-5 w-5 text-indigo-500" />
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-sm">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500" />
               <span className="font-medium text-slate-700">7 مواد دراسية</span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-              <GraduationCap className="h-5 w-5 text-violet-500" />
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-sm">
+              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-violet-500" />
               <span className="font-medium text-slate-700">بيئة محفزة</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <section className="flex-1 px-4 py-8 sm:px-6 sm:py-12">
+      {/* Main Content - Mobile Optimized */}
+      <section className="flex-1 px-3 py-6 sm:px-4 sm:py-8 md:px-6 md:py-12">
         <div className="mx-auto max-w-5xl">
           {/* Breadcrumb */}
           {view.type !== "grades" && (
@@ -497,8 +498,8 @@ export default function LandingHero() {
                   </div>
                 </div>
 
-                {/* Weekly Schedule Table */}
-                <div className="p-4 overflow-x-auto">
+                {/* Weekly Schedule Table - Mobile Optimized */}
+                <div className="p-3 sm:p-4 overflow-x-auto -mx-3 sm:mx-0">
                   {(() => {
                     // Find the class for this grade - try multiple matching strategies
                     const gradeClass = classes.find(c => {
@@ -551,79 +552,143 @@ export default function LandingHero() {
                       )
                     }
 
-                    return (
-                      <div className="min-w-[800px]">
-                        {/* Header Row - Period numbers */}
-                        <div className="grid grid-cols-9 gap-2 mb-2">
-                          <div className="text-center py-2 px-2 rounded-lg font-bold text-xs bg-slate-100 text-slate-700">
-                            اليوم / الحصة
-                          </div>
-                          {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNum) => (
-                            <div
-                              key={periodNum}
-                              className="text-center py-2 px-2 rounded-lg font-bold text-xs bg-slate-100 text-slate-700"
-                            >
-                              {periodNum}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Schedule Rows - Each day is a row */}
-                        {[0, 1, 2, 3, 4, 5].map((dayIndex) => {
-                          const daySchedule = fullSchedule[dayIndex] || []
-                          const isToday = dayIndex === new Date().getDay()
-                          
-                          return (
-                            <div key={dayIndex} className="grid grid-cols-9 gap-2 mb-2">
-                              {/* Day name cell */}
-                              <div
-                                className={`text-center py-3 px-2 rounded-lg font-bold text-xs flex items-center justify-center ${
-                                  isToday
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}
-                              >
-                                {dayNames[dayIndex]}
+                      return (
+                        <>
+                          {/* Desktop Grid View */}
+                          <div className="hidden sm:block min-w-[600px] sm:min-w-[800px]">
+                            {/* Header Row - Period numbers */}
+                            <div className="grid grid-cols-9 gap-1.5 sm:gap-2 mb-2">
+                              <div className="text-center py-1.5 sm:py-2 px-1 sm:px-2 rounded-lg font-bold text-[10px] sm:text-xs bg-slate-100 text-slate-700">
+                                اليوم / الحصة
                               </div>
+                              {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNum) => (
+                                <div
+                                  key={periodNum}
+                                  className="text-center py-1.5 sm:py-2 px-1 sm:px-2 rounded-lg font-bold text-[10px] sm:text-xs bg-slate-100 text-slate-700"
+                                >
+                                  {periodNum}
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Schedule Rows - Each day is a row */}
+                            {[0, 1, 2, 3, 4, 5].map((dayIndex) => {
+                              const daySchedule = fullSchedule[dayIndex] || []
+                              const isToday = dayIndex === new Date().getDay()
                               
-                              {/* Period cells for this day */}
-                              {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNum) => {
-                                const item = daySchedule.find(s => s.periodNumber === periodNum)
-                                
-                                if (!item) {
-                                  return (
-                                    <div 
-                                      key={periodNum}
-                                      className="text-center py-3 bg-slate-50 rounded-lg border border-slate-100 min-h-[60px] flex items-center justify-center"
-                                    >
-                                      <span className="text-[10px] text-slate-400">-</span>
-                                    </div>
-                                  )
-                                }
-                                
-                                return (
+                              return (
+                                <div key={dayIndex} className="grid grid-cols-9 gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                                  {/* Day name cell */}
                                   <div
-                                    key={periodNum}
-                                    className={`p-2 rounded-lg border text-center ${
+                                    className={`text-center py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-[10px] sm:text-xs flex items-center justify-center ${
                                       isToday
-                                        ? 'bg-emerald-50 border-emerald-200'
-                                        : 'bg-white border-slate-200'
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-slate-100 text-slate-700'
                                     }`}
                                   >
-                                    <p className="text-[10px] font-medium text-slate-700 truncate leading-tight">
-                                      {item.subject}
-                                    </p>
-                                    <span className="text-[9px] text-slate-500">
-                                      {item.startTime}
-                                    </span>
+                                    {dayNames[dayIndex]}
                                   </div>
-                                )
-                              })}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
+                                  
+                                  {/* Period cells for this day */}
+                                  {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNum) => {
+                                    const item = daySchedule.find(s => s.periodNumber === periodNum)
+                                    
+                                    if (!item) {
+                                      return (
+                                        <div 
+                                          key={periodNum}
+                                          className="text-center py-2 sm:py-3 bg-slate-50 rounded-lg border border-slate-100 min-h-[50px] sm:min-h-[60px] flex items-center justify-center"
+                                        >
+                                          <span className="text-[9px] sm:text-[10px] text-slate-400">-</span>
+                                        </div>
+                                      )
+                                    }
+                                    
+                                    return (
+                                      <div
+                                        key={periodNum}
+                                        className={`p-1.5 sm:p-2 rounded-lg border text-center ${
+                                          isToday
+                                            ? 'bg-emerald-50 border-emerald-200'
+                                            : 'bg-white border-slate-200'
+                                        }`}
+                                      >
+                                        <p className="text-[9px] sm:text-[10px] font-medium text-slate-700 truncate leading-tight">
+                                          {item.subject}
+                                        </p>
+                                        <span className="text-[8px] sm:text-[9px] text-slate-500">
+                                          {item.startTime}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Mobile Card View */}
+                          <div className="sm:hidden space-y-3">
+                            {[0, 1, 2, 3, 4, 5].map((dayIndex) => {
+                              const daySchedule = fullSchedule[dayIndex] || []
+                              const isToday = dayIndex === new Date().getDay()
+                              const dayLessons = daySchedule.length
+                              
+                              // Skip empty days on mobile to save space
+                              if (dayLessons === 0) return null
+                              
+                              return (
+                                <div key={dayIndex} className="border rounded-xl overflow-hidden bg-white">
+                                  {/* Day Header */}
+                                  <div className={`px-4 py-2.5 flex items-center justify-between ${
+                                    isToday ? 'bg-emerald-500 text-white' : 'bg-slate-100'
+                                  }`}>
+                                    <div className="font-bold text-sm">{dayNames[dayIndex]}</div>
+                                    <div className={`text-xs ${isToday ? 'text-emerald-100' : 'text-slate-500'}`}>
+                                      {dayLessons} حصة
+                                    </div>
+                                  </div>
+                                  {/* Day Schedule */}
+                                  <div className="p-3 space-y-2">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNum) => {
+                                      const item = daySchedule.find(s => s.periodNumber === periodNum)
+                                      
+                                      if (!item) return null
+                                      
+                                      return (
+                                        <div
+                                          key={periodNum}
+                                          className={`flex items-center gap-3 p-2.5 rounded-lg border ${
+                                            isToday 
+                                              ? 'bg-emerald-50 border-emerald-200' 
+                                              : 'bg-white border-slate-200'
+                                          }`}
+                                        >
+                                          {/* Period Number */}
+                                          <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                                            isToday ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                                          }`}>
+                                            {periodNum}
+                                          </div>
+                                          {/* Subject Info */}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-sm text-slate-800 truncate">
+                                              {item.subject}
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                              {item.startTime} - {item.endTime}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </>
+                      )
                   })()}
                 </div>
               </div>
@@ -644,8 +709,8 @@ export default function LandingHero() {
                   </p>
                 </div>
 
-                {/* Subjects Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {/* Subjects Grid - Mobile Optimized */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   {subjects.map((subj) => (
                     <button
                       key={subj.name}
@@ -659,30 +724,30 @@ export default function LandingHero() {
                           subjectColor: subj.color,
                         })
                       }
-                      className="group relative bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-transparent hover:shadow-xl hover:-translate-y-2 transition-all duration-300 overflow-hidden"
+                      className="group relative bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border-2 border-slate-100 hover:border-transparent hover:shadow-xl hover:-translate-y-1 sm:hover:-translate-y-2 transition-all duration-300 overflow-hidden touch-target-sm"
                     >
                       {/* Background Color on Hover */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${subj.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                       
                       {/* Top Color Bar */}
-                      <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${subj.color}`} />
+                      <div className={`absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-gradient-to-r ${subj.color}`} />
                       
-                      <div className="relative flex flex-col items-center gap-3 text-center">
+                      <div className="relative flex flex-col items-center gap-2 sm:gap-3 text-center">
                         {/* Emoji Circle */}
-                        <div className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${subj.color} text-3xl shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                        <div className={`flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br ${subj.color} text-2xl sm:text-3xl shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
                           <span>{subj.emoji}</span>
                         </div>
                         
                         {/* Subject Name */}
                         <div>
-                          <h3 className="text-sm font-bold text-slate-700 mb-1 group-hover:text-slate-900 transition-colors">
+                          <h3 className="text-xs sm:text-sm font-bold text-slate-700 mb-0.5 sm:mb-1 group-hover:text-slate-900 transition-colors">
                             {subj.name}
                           </h3>
-                          <p className="text-xs text-slate-400">{subj.desc}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-400">{subj.desc}</p>
                         </div>
                         
                         {/* Arrow Indicator */}
-                        <div className="mt-1 flex items-center gap-1 text-xs text-slate-300 group-hover:text-slate-400 transition-colors">
+                        <div className="mt-0.5 sm:mt-1 flex items-center gap-1 text-[10px] sm:text-xs text-slate-300 group-hover:text-slate-400 transition-colors">
                           <span>عرض الملفات</span>
                           <ChevronLeft className="h-3 w-3 group-hover:-translate-x-1 transition-transform" />
                         </div>
@@ -697,34 +762,34 @@ export default function LandingHero() {
           {/* === Subject Files View - Kid-Friendly Beautiful Design === */}
           {view.type === "files" && (
             <div className="max-w-4xl mx-auto">
-              {/* Subject Header Card */}
-              <div className="flex items-center gap-5 mb-8 bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm">
-                <div className={`${view.subjectColor} flex h-20 w-20 items-center justify-center rounded-2xl shadow-lg`}>
-                  <span className="text-white text-5xl">
+              {/* Subject Header Card - Mobile Optimized */}
+              <div className="flex items-center gap-3 sm:gap-5 mb-6 sm:mb-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-slate-100 shadow-sm">
+                <div className={`${view.subjectColor} flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center rounded-xl sm:rounded-2xl shadow-lg flex-shrink-0`}>
+                  <span className="text-white text-3xl sm:text-5xl">
                     {subjects.find((s) => s.name === view.subject)?.emoji || "📚"}
                   </span>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">{view.subject}</h2>
-                    <span className="text-2xl">🎯</span>
+                    <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-slate-800 truncate">{view.subject}</h2>
+                    <span className="text-xl sm:text-2xl">🎯</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <span className="bg-slate-100 px-3 py-1 rounded-full">{view.gradeName}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-slate-500">
+                    <span className="bg-slate-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">{view.gradeName}</span>
                     <span>•</span>
-                    <span className="bg-slate-100 px-3 py-1 rounded-full">{view.semester === "first" ? "الفصل الأول 🍂" : "الفصل الثاني �"}</span>
+                    <span className="bg-slate-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">{view.semester === "first" ? "الفصل الأول 🍂" : "الفصل الثاني 🌸"}</span>
                   </div>
                 </div>
               </div>
 
               {files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-3xl border-3 border-dashed border-slate-200 bg-gradient-to-br from-sky-50 to-indigo-50 px-6 py-20 text-center">
-                  <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-md">
-                    <span className="text-6xl">📂</span>
+                <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-dashed border-slate-200 bg-gradient-to-br from-sky-50 to-indigo-50 px-4 sm:px-6 py-12 sm:py-20 text-center">
+                  <div className="mb-4 sm:mb-6 flex h-20 w-20 sm:h-28 sm:w-28 items-center justify-center rounded-full bg-white shadow-md">
+                    <span className="text-4xl sm:text-6xl">📂</span>
                   </div>
-                  <h3 className="mb-3 text-2xl font-bold text-slate-600">لا توجد ملفات حالياً</h3>
-                  <p className="text-slate-400 mb-6 text-lg">سيتم إضافة المحتوى قريباً إن شاء الله</p>
-                  <div className="flex gap-3 text-3xl">
+                  <h3 className="mb-2 sm:mb-3 text-xl sm:text-2xl font-bold text-slate-600">لا توجد ملفات حالياً</h3>
+                  <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">سيتم إضافة المحتوى قريباً إن شاء الله</p>
+                  <div className="flex gap-2 sm:gap-3 text-2xl sm:text-3xl">
                     <span>📝</span>
                     <span>📚</span>
                     <span>✨</span>
@@ -745,15 +810,15 @@ export default function LandingHero() {
                     <span className="text-sm text-slate-400">اضغط على أي ملف للتحميل</span>
                   </div>
 
-                  {/* Files Grid - Compact Horizontal Layout */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {/* Files Grid - Mobile Optimized Compact Layout */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                     {files.map((file, index) => (
                       <a
                         key={file.id}
                         href={file.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group flex flex-col bg-white rounded-xl p-3 border-2 border-slate-100 hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden relative text-center"
+                        className="group flex flex-col bg-white rounded-lg sm:rounded-xl p-2.5 sm:p-3 border-2 border-slate-100 hover:border-transparent hover:shadow-lg hover:-translate-y-0.5 sm:hover:-translate-y-1 transition-all duration-300 overflow-hidden relative text-center touch-target-sm"
                       >
                         {/* Background Color on Hover */}
                         <div className={`absolute inset-0 bg-gradient-to-br ${
@@ -763,8 +828,8 @@ export default function LandingHero() {
                           'from-slate-50 to-gray-50'
                         } opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
                         
-                        {/* File Icon - Smaller */}
-                        <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-xl text-2xl shadow-md group-hover:scale-110 transition-transform duration-300 mb-2 ${
+                        {/* File Icon - Smaller for mobile */}
+                        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 mx-auto items-center justify-center rounded-lg sm:rounded-xl text-lg sm:text-2xl shadow-md group-hover:scale-110 transition-transform duration-300 mb-1.5 sm:mb-2 ${
                           file.type === 'pdf' ? 'bg-gradient-to-br from-red-400 to-orange-500' :
                           file.type === 'image' ? 'bg-gradient-to-br from-sky-400 to-blue-500' :
                           file.type === 'link' ? 'bg-gradient-to-br from-emerald-400 to-green-500' :
@@ -780,9 +845,9 @@ export default function LandingHero() {
                         
                         {/* File Info - Compact */}
                         <div className="relative">
-                          <h4 className="text-sm font-bold text-slate-700 truncate group-hover:text-slate-900 transition-colors mb-1">{file.title}</h4>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-700 truncate group-hover:text-slate-900 transition-colors mb-1">{file.title}</h4>
                           <div className="flex items-center justify-center gap-1 flex-wrap">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            <span className={`inline-flex items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold ${
                               file.type === 'pdf' ? 'bg-red-100 text-red-600' :
                               file.type === 'image' ? 'bg-sky-100 text-sky-600' :
                               file.type === 'link' ? 'bg-emerald-100 text-emerald-600' :
@@ -811,55 +876,55 @@ export default function LandingHero() {
         </div>
       </section>
 
-      {/* School Info - Beautiful Section */}
-      <section className="border-t border-slate-100 bg-gradient-to-br from-sky-50 to-indigo-50 px-4 py-12 sm:px-6">
-        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
-          <div className="group bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-sky-200 hover:shadow-lg transition-all">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-md">
-                <MapPin className="h-6 w-6" />
+      {/* School Info - Mobile Optimized */}
+      <section className="border-t border-slate-100 bg-gradient-to-br from-sky-50 to-indigo-50 px-3 py-8 sm:px-4 sm:py-10 md:px-6 md:py-12">
+        <div className="mx-auto grid max-w-5xl gap-3 sm:gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="group bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 border-slate-100 hover:border-sky-200 hover:shadow-lg transition-all">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-md">
+                <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-700 mb-1">الموقع</h3>
-                <p className="text-sm text-slate-500">كفر عقب - القدس</p>
-              </div>
-            </div>
-          </div>
-          <div className="group bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-indigo-200 hover:shadow-lg transition-all">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white shadow-md">
-                <Phone className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-700 mb-1">التواصل</h3>
-                <p className="text-sm text-slate-500" dir="ltr">02-234-5678</p>
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-slate-700 mb-0.5 sm:mb-1">الموقع</h3>
+                <p className="text-xs sm:text-sm text-slate-500">كفر عقب - القدس</p>
               </div>
             </div>
           </div>
-          <div className="group bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-violet-200 hover:shadow-lg transition-all">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 text-white shadow-md">
-                <Users className="h-6 w-6" />
+          <div className="group bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 border-slate-100 hover:border-indigo-200 hover:shadow-lg transition-all">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white shadow-md">
+                <Phone className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-700 mb-1">الطلاب</h3>
-                <p className="text-sm text-slate-500">صفوف من الأول حتى التاسع</p>
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-slate-700 mb-0.5 sm:mb-1">التواصل</h3>
+                <p className="text-xs sm:text-sm text-slate-500" dir="ltr">02-234-5678</p>
+              </div>
+            </div>
+          </div>
+          <div className="group bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 border-slate-100 hover:border-violet-200 hover:shadow-lg transition-all sm:col-span-2 lg:col-span-1">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 text-white shadow-md">
+                <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-slate-700 mb-0.5 sm:mb-1">الطلاب</h3>
+                <p className="text-xs sm:text-sm text-slate-500">صفوف من الأول حتى التاسع</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer - Beautiful Design */}
-      <footer className="border-t border-slate-100 bg-white px-4 py-8 text-center">
+      {/* Footer - Mobile Optimized */}
+      <footer className="border-t border-slate-100 bg-white px-3 py-6 sm:px-4 sm:py-8 text-center safe-area-bottom">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 text-white shadow-md">
-              <GraduationCap className="h-5 w-5" />
+          <div className="mb-3 sm:mb-4 flex items-center justify-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 text-white shadow-md">
+              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <span className="text-base font-bold text-slate-700">مدرسة كفر عقب</span>
+            <span className="text-sm sm:text-base font-bold text-slate-700">مدرسة كفر عقب</span>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-[10px] sm:text-xs text-slate-400 px-2">
             مدرسة كفر عقب الأساسية المختلطة - جميع الحقوق محفوظة © 2026
           </p>
         </div>

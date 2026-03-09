@@ -1,6 +1,38 @@
 import { supabase } from "./supabaseClient"
 import type { SchoolClass, Student, AttendanceRecord, ScheduleItem, Teacher, Grade } from "./store"
 
+// Type for attendance with student names
+export type AttendanceWithNames = {
+  id: string
+  classId: string
+  date: string
+  records: {
+    studentId: string
+    studentName: string
+    present: boolean
+  }[]
+}
+
+// Helper function to enrich attendance records with student names
+async function enrichAttendanceWithNames(
+  attendanceRecords: AttendanceRecord[],
+  classStudents: Student[]
+): Promise<AttendanceWithNames[]> {
+  // Create a map of studentId to student name for quick lookup
+  const studentMap = new Map(classStudents.map(s => [s.id, s.name]))
+  
+  return attendanceRecords.map(record => ({
+    id: record.id,
+    classId: record.classId,
+    date: record.date,
+    records: record.records.map(r => ({
+      studentId: r.studentId,
+      studentName: studentMap.get(r.studentId) || 'غير معروف',
+      present: r.present,
+    }))
+  }))
+}
+
 // ===== Classes =====
 
 export async function fetchClasses(): Promise<SchoolClass[]> {
@@ -217,6 +249,43 @@ export async function deleteStudentById(id: string): Promise<void> {
 
 export async function fetchAttendanceByClass(
   classId: string
+): Promise<AttendanceWithNames[]> {
+  // Get attendance records
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from("attendance_records")
+    .select("id, class_id, date, records")
+    .eq("class_id", classId)
+    .order("date", { ascending: false })
+
+  if (attendanceError || !attendanceData) return []
+
+  // Get students for this class to map names
+  const { data: studentsData, error: studentsError } = await supabase
+    .from("students")
+    .select("id, name")
+    .eq("class_id", classId)
+
+  if (studentsError || !studentsData) return []
+
+  // Create student name map
+  const studentMap = new Map(studentsData.map((s: { id: string; name: string }) => [s.id, s.name]))
+
+  // Enrich attendance records with student names
+  return attendanceData.map((row: { id: string; class_id: string; date: string; records: { studentId: string; present: boolean }[] }) => ({
+    id: row.id,
+    classId: row.class_id,
+    date: row.date,
+    records: (row.records || []).map((r: { studentId: string; present: boolean }) => ({
+      studentId: r.studentId,
+      studentName: studentMap.get(r.studentId) || 'غير معروف',
+      present: r.present,
+    })),
+  }))
+}
+
+// Keep old function for backward compatibility if needed
+export async function fetchAttendanceByClassRaw(
+  classId: string
 ): Promise<AttendanceRecord[]> {
   const { data, error } = await supabase
     .from("attendance_records")
@@ -263,10 +332,54 @@ export async function saveAttendanceRecord(
   }
 }
 
-// Fetch attendance records for a specific student
+// Fetch attendance records for a specific student with their name
+export async function fetchAttendanceByStudentWithName(
+  studentId: string
+): Promise<{ date: string; present: boolean; studentName: string }[]> {
+  // First get the student's name
+  const { data: studentData, error: studentError } = await supabase
+    .from("students")
+    .select("name")
+    .eq("id", studentId)
+    .single()
+
+  const studentName = studentData?.name || 'غير معروف'
+
+  if (studentError) {
+    console.error("Error fetching student name:", studentError)
+  }
+
+  // Then get attendance records
+  const { data, error } = await supabase
+    .from("attendance_records")
+    .select("date, records")
+    .order("date", { ascending: false })
+
+  if (error || !data) return []
+
+  // Filter records for the specific student
+  const studentRecords: { date: string; present: boolean; studentName: string }[] = []
+  
+  data.forEach((record) => {
+    const records = record.records as { studentId: string; present: boolean }[] || []
+    const studentRecord = records.find((r) => r.studentId === studentId)
+    if (studentRecord) {
+      studentRecords.push({
+        date: record.date as string,
+        present: studentRecord.present,
+        studentName: studentName,
+      })
+    }
+  })
+
+  return studentRecords
+}
+
+// Fetch attendance records for a specific student (simplified version)
 export async function fetchAttendanceByStudent(
   studentId: string
 ): Promise<{ date: string; present: boolean }[]> {
+  // Get attendance records
   const { data, error } = await supabase
     .from("attendance_records")
     .select("date, records")
@@ -535,6 +648,39 @@ export async function createGrade(
   teacherId: string | null,
   notes: string
 ): Promise<Grade | null> {
+  console.log("Creating grade with data:", {
+    studentId,
+    subject,
+    grade,
+    maxGrade,
+    semester,
+    academicYear,
+    examType,
+    teacherId,
+    notes
+  })
+
+  // First, let's test if the table exists by doing a simple select
+  try {
+    const { data: testData, error: testError } = await supabase
+      .from("grades")
+      .select("id")
+      .limit(1)
+    
+    if (testError) {
+      console.error("Table access test failed:", testError)
+      if (testError.code === 'PGRST116') {
+        console.error("The grades table does not exist!")
+      }
+      return null
+    }
+    
+    console.log("Table access test passed")
+  } catch (err) {
+    console.error("Unexpected error testing table access:", err)
+    return null
+  }
+
   const { data, error } = await supabase
     .from("grades")
     .insert({
@@ -551,7 +697,18 @@ export async function createGrade(
     .select("id, student_id, subject, grade, max_grade, semester, academic_year, exam_type, teacher_id, notes, created_at")
     .single()
 
-  if (error || !data) return null
+  if (error) {
+    console.error("Error creating grade:", error)
+    console.error("Error details:", JSON.stringify(error, null, 2))
+    return null
+  }
+
+  if (!data) {
+    console.error("No data returned from createGrade operation")
+    return null
+  }
+
+  console.log("Grade created successfully:", data)
 
   return {
     id: data.id as string,

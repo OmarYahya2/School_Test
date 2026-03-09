@@ -170,70 +170,74 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* ========== HEADER SECTION ========== */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-teal-800 p-8 text-white shadow-2xl">
+      {/* ========== HEADER SECTION - Mobile Optimized ========== */}
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-teal-800 p-4 sm:p-6 md:p-8 text-white shadow-2xl">
         {/* Decorative elements */}
-        <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-teal-500/10 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute right-20 top-10 h-4 w-4 rounded-full bg-amber-400/60 animate-pulse" />
-        <div className="absolute left-32 bottom-20 h-2 w-2 rounded-full bg-teal-300/60 animate-pulse delay-700" />
+        <div className="absolute -right-10 -top-10 sm:-right-20 sm:-top-20 h-40 w-40 sm:h-60 sm:w-60 rounded-full bg-teal-500/10 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 sm:-bottom-20 sm:-left-20 h-40 w-40 sm:h-60 sm:w-60 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute right-10 top-6 sm:right-20 sm:top-10 h-3 w-3 sm:h-4 sm:w-4 rounded-full bg-amber-400/60 animate-pulse" />
+        <div className="absolute left-20 bottom-10 sm:left-32 sm:bottom-20 h-2 w-2 rounded-full bg-teal-300/60 animate-pulse delay-700" />
         
         <div className="relative z-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-start md:justify-between">
             {/* Left: Welcome message */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
-                  <Sparkles className="h-4 w-4 text-amber-300" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
+                  <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-amber-300" />
                 </div>
-                <span className="text-sm font-medium text-teal-200">مرحباً بك في لوحة التحكم</span>
+                <span className="text-xs sm:text-sm font-medium text-teal-200">مرحباً بك في لوحة التحكم</span>
               </div>
-              <h1 className="text-4xl font-bold mb-2">نظرة عامة على المدرسة</h1>
-              <p className="text-slate-300 max-w-xl leading-relaxed">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">نظرة عامة على المدرسة</h1>
+              <p className="text-slate-300 max-w-xl leading-relaxed text-sm sm:text-base">
                 تتبع أداء المدرسة، إحصائيات الطلاب والمعلمين، الجداول الدراسية، والمواد التعليمية في مكان واحد
               </p>
               
               {/* Quick stats row */}
-              <div className="mt-6 flex flex-wrap gap-4">
-                <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 backdrop-blur-sm">
-                  <School className="h-4 w-4 text-teal-300" />
-                  <span className="text-sm">{classes.length} صف دراسي</span>
+              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-4">
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-2.5 py-1.5 sm:px-4 sm:py-2 backdrop-blur-sm">
+                  <School className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-teal-300" />
+                  <span className="text-xs sm:text-sm">{classes.length} صف دراسي</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 backdrop-blur-sm">
-                  <Users className="h-4 w-4 text-blue-300" />
-                  <span className="text-sm">{students.length} طالب</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-2.5 py-1.5 sm:px-4 sm:py-2 backdrop-blur-sm">
+                  <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-300" />
+                  <span className="text-xs sm:text-sm">{students.length} طالب</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 backdrop-blur-sm">
-                  <UserCheck className="h-4 w-4 text-violet-300" />
-                  <span className="text-sm">{teachers.length} معلم</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-white/10 px-2.5 py-1.5 sm:px-4 sm:py-2 backdrop-blur-sm">
+                  <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-300" />
+                  <span className="text-xs sm:text-sm">{teachers.length} معلم</span>
                 </div>
               </div>
             </div>
 
             {/* Right: Date & Actions */}
-            <div className="flex flex-col items-start md:items-end gap-4">
+            <div className="flex flex-col items-start md:items-end gap-3 sm:gap-4">
               <div className="text-left md:text-right">
-                <p className="text-2xl font-semibold">{formattedTime}</p>
-                <p className="text-sm text-slate-400">{formattedDate}</p>
+                <p className="text-xl sm:text-2xl font-semibold">{formattedTime}</p>
+                <p className="text-xs sm:text-sm text-slate-400">{formattedDate}</p>
               </div>
               <div className="flex gap-2">
                 <Button 
                   asChild 
                   variant="outline" 
-                  className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white backdrop-blur-sm"
+                  size="sm"
+                  className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white backdrop-blur-sm text-xs sm:text-sm touch-target-sm"
                 >
                   <Link href="/dashboard/classes">
-                    <BookOpen className="ml-2 h-4 w-4" />
-                    الصفوف
+                    <BookOpen className="ml-1.5 sm:ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">الصفوف</span>
+                    <span className="sm:hidden">صفوف</span>
                   </Link>
                 </Button>
                 <Button 
                   asChild 
-                  className="bg-white text-slate-900 hover:bg-slate-100 shadow-lg shadow-white/10"
+                  size="sm"
+                  className="bg-white text-slate-900 hover:bg-slate-100 shadow-lg shadow-white/10 text-xs sm:text-sm touch-target-sm"
                 >
                   <Link href="/dashboard/students?action=add">
-                    <Plus className="ml-2 h-4 w-4" />
-                    طالب جديد
+                    <Plus className="ml-1.5 sm:ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">طالب جديد</span>
+                    <span className="sm:hidden">جديد</span>
                   </Link>
                 </Button>
               </div>
@@ -242,8 +246,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ========== STATS CARDS ========== */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* ========== STATS CARDS - Mobile Optimized ========== */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {/* Classes */}
         <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-1">
           <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
@@ -341,35 +345,35 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Stats & Activity Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Quick Stats & Activity Row - Mobile Optimized */}
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {/* School Overview */}
         <Card className="border-slate-200/60 bg-white/80 backdrop-blur-sm shadow-sm lg:col-span-2">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/25">
-                  <GraduationCap className="h-5 w-5 text-white" />
+          <CardHeader className="pb-3 sm:pb-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/25 flex-shrink-0">
+                  <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
-                <div>
-                  <CardTitle>نظرة عامة على المدرسة</CardTitle>
-                  <CardDescription>إحصائيات ومؤشرات الأداء</CardDescription>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-base">نظرة عامة على المدرسة</CardTitle>
+                  <CardDescription className="text-xs">إحصائيات ومؤشرات الأداء</CardDescription>
                 </div>
               </div>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs flex-shrink-0">
                 <Activity className="ml-1 h-3 w-3" />
                 نشط
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6">
             {/* Occupancy Rate */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-xs sm:text-sm">
                 <span className="text-slate-600">نسبة إشغال الصفوف</span>
                 <span className="font-semibold text-slate-800">{stats.occupancyRate}%</span>
               </div>
-              <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-2.5 sm:h-3 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-1000"
                   style={{ width: `${stats.occupancyRate}%` }}
@@ -381,87 +385,87 @@ export default function DashboardPage() {
             </div>
 
             {/* Teacher-Student Ratio */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                  <Users className="h-6 w-6 text-blue-600" />
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="flex items-center gap-2 sm:gap-3 rounded-xl bg-slate-50 p-3 sm:p-4">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg bg-blue-100 flex-shrink-0">
+                  <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-sm text-slate-500">نسبة المعلمين للطلاب</p>
-                  <p className="text-lg font-bold text-slate-800">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm text-slate-500">نسبة المعلمين للطلاب</p>
+                  <p className="text-base sm:text-lg font-bold text-slate-800">
                     1:{stats.totalTeachers > 0 ? Math.round(stats.totalStudents / stats.totalTeachers) : 0}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100">
-                  <Calendar className="h-6 w-6 text-amber-600" />
+              <div className="flex items-center gap-2 sm:gap-3 rounded-xl bg-slate-50 p-3 sm:p-4">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg bg-amber-100 flex-shrink-0">
+                  <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
                 </div>
-                <div>
-                  <p className="text-sm text-slate-500">الفصول الدراسية</p>
-                  <p className="text-lg font-bold text-slate-800">{stats.totalClasses}</p>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm text-slate-500">الفصول الدراسية</p>
+                  <p className="text-base sm:text-lg font-bold text-slate-800">{stats.totalClasses}</p>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Quick Actions - Modern Glass Cards */}
-        <div className="space-y-4">
+        {/* Quick Actions - Mobile Optimized */}
+        <div className="space-y-3 sm:space-y-4">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Plus className="h-4 w-4" />
             إجراءات سريعة
           </h3>
           
           <Link href="/dashboard/classes?action=add" className="group block">
-            <div className="flex items-center gap-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 transition-all duration-300 hover:shadow-md hover:from-blue-100 hover:to-blue-200/50 border border-blue-200/50">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500 shadow-lg shadow-blue-500/25 transition-transform group-hover:scale-110">
-                <BookOpen className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3 sm:gap-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 p-3 sm:p-4 transition-all duration-300 hover:shadow-md hover:from-blue-100 hover:to-blue-200/50 border border-blue-200/50 touch-target-sm">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-500 shadow-lg shadow-blue-500/25 transition-transform group-hover:scale-110 flex-shrink-0">
+                <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-slate-800">إضافة صف جديد</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 text-sm sm:text-base">إضافة صف جديد</p>
                 <p className="text-xs text-slate-500">إنشاء صف دراسي جديد</p>
               </div>
-              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1 flex-shrink-0" />
             </div>
           </Link>
 
           <Link href="/dashboard/teachers?action=add" className="group block">
-            <div className="flex items-center gap-4 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100/50 p-4 transition-all duration-300 hover:shadow-md hover:from-violet-100 hover:to-violet-200/50 border border-violet-200/50">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500 shadow-lg shadow-violet-500/25 transition-transform group-hover:scale-110">
-                <UserCheck className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3 sm:gap-4 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100/50 p-3 sm:p-4 transition-all duration-300 hover:shadow-md hover:from-violet-100 hover:to-violet-200/50 border border-violet-200/50 touch-target-sm">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-violet-500 shadow-lg shadow-violet-500/25 transition-transform group-hover:scale-110 flex-shrink-0">
+                <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-slate-800">إضافة معلم جديد</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 text-sm sm:text-base">إضافة معلم جديد</p>
                 <p className="text-xs text-slate-500">تسجيل معلم في النظام</p>
               </div>
-              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1 flex-shrink-0" />
             </div>
           </Link>
 
           <Link href="/dashboard/students?action=add" className="group block">
-            <div className="flex items-center gap-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-4 transition-all duration-300 hover:shadow-md hover:from-emerald-100 hover:to-emerald-200/50 border border-emerald-200/50">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 shadow-lg shadow-emerald-500/25 transition-transform group-hover:scale-110">
-                <Users className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3 sm:gap-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-3 sm:p-4 transition-all duration-300 hover:shadow-md hover:from-emerald-100 hover:to-emerald-200/50 border border-emerald-200/50 touch-target-sm">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-emerald-500 shadow-lg shadow-emerald-500/25 transition-transform group-hover:scale-110 flex-shrink-0">
+                <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-slate-800">إضافة طالب جديد</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 text-sm sm:text-base">إضافة طالب جديد</p>
                 <p className="text-xs text-slate-500">تسجيل طالب في صف</p>
               </div>
-              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1 flex-shrink-0" />
             </div>
           </Link>
 
           <Link href="/dashboard/files" className="group block">
-            <div className="flex items-center gap-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 p-4 transition-all duration-300 hover:shadow-md hover:from-amber-100 hover:to-amber-200/50 border border-amber-200/50">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-110">
-                <FileText className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3 sm:gap-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 p-3 sm:p-4 transition-all duration-300 hover:shadow-md hover:from-amber-100 hover:to-amber-200/50 border border-amber-200/50 touch-target-sm">
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-amber-500 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-110 flex-shrink-0">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-slate-800">إضافة ملف تعليمي</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 text-sm sm:text-base">إضافة ملف تعليمي</p>
                 <p className="text-xs text-slate-500">رفع مادة دراسية</p>
               </div>
-              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1" />
+              <ChevronLeft className="h-5 w-5 text-slate-400 transition-transform group-hover:-translate-x-1 flex-shrink-0" />
             </div>
           </Link>
         </div>

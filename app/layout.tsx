@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans_Arabic } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
@@ -9,6 +9,14 @@ const ibmPlexArabic = IBM_Plex_Sans_Arabic({
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-sans',
 })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: 'مدرسة كفر عقب الأساسية المختلطة',
@@ -30,6 +38,14 @@ export const metadata: Metadata = {
       },
     ],
     apple: '/apple-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'مدرسة كفر عقب',
+  },
+  formatDetection: {
+    telephone: false,
   },
 }
 

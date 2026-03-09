@@ -551,21 +551,25 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Schedule Table */}
+      {/* Schedule Table - Mobile Optimized */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            الجدول الأسبوعي
-          </CardTitle>
-          <Badge variant="outline" className="px-3 py-1">
-            {selectedSemester === 1 ? "الفصل الأول" : "الفصل الثاني"}
-          </Badge>
-          <CardDescription>
-            {selectedClass
-              ? classes.find((c) => c.id === selectedClass)?.name || "الصف المختار"
-              : "اختر صفاً لعرض جدوله"}
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                الجدول الأسبوعي
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {selectedClass
+                  ? classes.find((c) => c.id === selectedClass)?.name || "الصف المختار"
+                  : "اختر صفاً لعرض جدوله"}
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="px-3 py-1 w-fit">
+              {selectedSemester === 1 ? "الفصل الأول" : "الفصل الثاني"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           {!selectedClass ? (
@@ -580,122 +584,239 @@ export default function SchedulePage() {
               <p className="mt-4 text-sm">جاري تحميل الجدول...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[900px]">
-                {/* Header Row - Periods */}
-                <div className="grid grid-cols-9 gap-2 mb-2">
-                  <div className="p-3 text-center font-medium text-muted-foreground bg-muted rounded-lg">
-                    اليوم / الحصة
+            <>
+              {/* Desktop Grid View */}
+              <div className="hidden lg:block overflow-x-auto">
+                <div className="min-w-[900px]">
+                  {/* Header Row - Periods */}
+                  <div className="grid grid-cols-9 gap-2 mb-2">
+                    <div className="p-3 text-center font-medium text-muted-foreground bg-muted rounded-lg">
+                      اليوم / الحصة
+                    </div>
+                    {DEFAULT_PERIODS.map((period) => (
+                      <div
+                        key={period.number}
+                        className="p-3 text-center font-medium text-foreground bg-muted rounded-lg"
+                      >
+                        <div>الحصة {period.number}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {period.start} - {period.end}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {DEFAULT_PERIODS.map((period) => (
-                    <div
-                      key={period.number}
-                      className="p-3 text-center font-medium text-foreground bg-muted rounded-lg"
-                    >
-                      <div>الحصة {period.number}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {period.start} - {period.end}
-                      </div>
-                    </div>
-                  ))}
-                </div>
 
-                {/* Day Rows */}
-                <div className="space-y-2">
-                  {DAYS.map((day) => (
-                    <div key={day.id} className="grid grid-cols-9 gap-2">
-                      {/* Day Column */}
-                      <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-center text-sm font-medium text-foreground">
-                        {day.name}
-                      </div>
+                  {/* Day Rows */}
+                  <div className="space-y-2">
+                    {DAYS.map((day) => (
+                      <div key={day.id} className="grid grid-cols-9 gap-2">
+                        {/* Day Column */}
+                        <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-center text-sm font-medium text-foreground">
+                          {day.name}
+                        </div>
 
-                      {/* Period Columns */}
-                      {DEFAULT_PERIODS.map((period) => {
-                        const item = getScheduleItem(day.id, period.number)
-                        const colors = item ? getSubjectColor(item.subject) : null
+                        {/* Period Columns */}
+                        {DEFAULT_PERIODS.map((period) => {
+                          const item = getScheduleItem(day.id, period.number)
+                          const colors = item ? getSubjectColor(item.subject) : null
 
-                        return (
-                          <div
-                            key={`${day.id}-${period.number}`}
-                            className={cn(
-                              "p-2 rounded-lg border-2 min-h-[70px] transition-all",
-                              item
-                                ? `${colors?.bg} ${colors?.border} ${colors?.text}`
-                                : "border-dashed border-muted bg-muted/30 hover:bg-muted/50"
-                            )}
-                          >
-                            {item ? (
-                              <div className="h-full flex flex-col">
-                                <div className="font-semibold text-xs mb-1">{item.subject}</div>
-                                <div className="text-[10px] opacity-80 mt-auto">
-                                  {getTeacherName(item.teacherId) && (
-                                    <div className="flex items-center gap-1">
-                                      <User className="h-2 w-2" />
-                                      {getTeacherName(item.teacherId)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-center gap-1 mt-1">
-                                  <button
-                                    onClick={() => handleEditClick(item)}
-                                    className="p-1 rounded hover:bg-black/5 transition-colors"
-                                    title="تعديل"
-                                  >
-                                    <Edit3 className="h-3 w-3" />
-                                  </button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <button
-                                        className="p-1 rounded hover:bg-red-100 hover:text-red-600 transition-colors"
-                                        title="حذف"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-foreground">
-                                          حذف الحصة
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          هل أنت متأكد من حذف حصة &quot;{item.subject}&quot; يوم{" "}
-                                          {DAYS.find((d) => d.id === item.dayOfWeek)?.name}؟
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter className="flex gap-2">
-                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDeleteScheduleItem(item.id)}
-                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          return (
+                            <div
+                              key={`${day.id}-${period.number}`}
+                              className={cn(
+                                "p-2 rounded-lg border-2 min-h-[70px] transition-all",
+                                item
+                                  ? `${colors?.bg} ${colors?.border} ${colors?.text}`
+                                  : "border-dashed border-muted bg-muted/30 hover:bg-muted/50"
+                              )}
+                            >
+                              {item ? (
+                                <div className="h-full flex flex-col">
+                                  <div className="font-semibold text-xs mb-1">{item.subject}</div>
+                                  <div className="text-[10px] opacity-80 mt-auto">
+                                    {getTeacherName(item.teacherId) && (
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-2 w-2" />
+                                        {getTeacherName(item.teacherId)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-center gap-1 mt-1">
+                                    <button
+                                      onClick={() => handleEditClick(item)}
+                                      className="p-1 rounded hover:bg-black/5 transition-colors touch-target-sm"
+                                      title="تعديل"
+                                    >
+                                      <Edit3 className="h-3 w-3" />
+                                    </button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <button
+                                          className="p-1 rounded hover:bg-red-100 hover:text-red-600 transition-colors touch-target-sm"
+                                          title="حذف"
                                         >
-                                          حذف
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle className="text-foreground">
+                                            حذف الحصة
+                                          </AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            هل أنت متأكد من حذف حصة &quot;{item.subject}&quot; يوم{" "}
+                                            {DAYS.find((d) => d.id === item.dayOfWeek)?.name}؟
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter className="flex gap-2">
+                                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteScheduleItem(item.id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            حذف
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedDay(day.id)
-                                  handlePeriodChange(period.number)
-                                  setFormSemester(selectedSemester)
-                                  setAddOpen(true)
-                                }}
-                                className="w-full h-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ))}
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedDay(day.id)
+                                    handlePeriodChange(period.number)
+                                    setFormSemester(selectedSemester)
+                                    setAddOpen(true)
+                                  }}
+                                  className="w-full h-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors touch-target-sm"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {DAYS.map((day) => {
+                  const dayItems = schedule.filter(item => item.dayOfWeek === day.id && item.semester === selectedSemester)
+                  return (
+                    <div key={day.id} className="border rounded-xl overflow-hidden bg-card">
+                      {/* Day Header */}
+                      <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between">
+                        <div className="font-semibold text-foreground">{day.name}</div>
+                        <Badge variant="outline" className="text-xs">
+                          {dayItems.length} حصة
+                        </Badge>
+                      </div>
+                      {/* Day Schedule */}
+                      <div className="p-3 space-y-2">
+                        {DEFAULT_PERIODS.map((period) => {
+                          const item = getScheduleItem(day.id, period.number)
+                          const colors = item ? getSubjectColor(item.subject) : null
+
+                          return (
+                            <div
+                              key={`mobile-${day.id}-${period.number}`}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-lg border-2 transition-all touch-target-sm",
+                                item
+                                  ? `${colors?.bg} ${colors?.border} ${colors?.text}`
+                                  : "border-dashed border-muted bg-muted/20 hover:bg-muted/30"
+                              )}
+                            >
+                              {/* Period Number */}
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
+                                {period.number}
+                              </div>
+                              
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                {item ? (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-sm truncate">{item.subject}</div>
+                                      <div className="text-xs opacity-80 flex items-center gap-2 mt-0.5">
+                                        <span>{period.start} - {period.end}</span>
+                                        {getTeacherName(item.teacherId) && (
+                                          <span className="flex items-center gap-1">
+                                            <User className="h-3 w-3" />
+                                            {getTeacherName(item.teacherId)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <button
+                                        onClick={() => handleEditClick(item)}
+                                        className="p-2 rounded-lg hover:bg-black/5 transition-colors touch-target-sm"
+                                        title="تعديل"
+                                      >
+                                        <Edit3 className="h-4 w-4" />
+                                      </button>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <button
+                                            className="p-2 rounded-lg hover:bg-red-100 hover:text-red-600 transition-colors touch-target-sm"
+                                            title="حذف"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle className="text-foreground">
+                                              حذف الحصة
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              هل أنت متأكد من حذف حصة &quot;{item.subject}&quot; يوم{" "}
+                                              {DAYS.find((d) => d.id === item.dayOfWeek)?.name}؟
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter className="flex gap-2">
+                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() => handleDeleteScheduleItem(item.id)}
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              حذف
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDay(day.id)
+                                      handlePeriodChange(period.number)
+                                      setFormSemester(selectedSemester)
+                                      setAddOpen(true)
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-2"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                    <span className="text-sm">إضافة حصة</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

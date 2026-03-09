@@ -121,33 +121,33 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Sidebar - Professional Design */}
+      {/* Sidebar - Professional Design - Mobile Optimized */}
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-slate-50 shadow-xl shadow-slate-200/50 transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-64 sm:w-72 flex-col bg-slate-50 shadow-xl shadow-slate-200/50 transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-700 shadow-md">
-              <GraduationCap className="h-5 w-5 text-white" />
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 safe-area-top">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-teal-700 shadow-md">
+              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             <div>
-              <span className="font-semibold text-base text-slate-800">مدرسة كفر عقب</span>
-              <p className="text-xs text-slate-600 font-medium tracking-wide">نظام إدارة مدرسي</p>
+              <span className="font-semibold text-sm sm:text-base text-slate-800">مدرسة كفر عقب</span>
+              <p className="text-[10px] sm:text-xs text-slate-600 font-medium tracking-wide">نظام إدارة مدرسي</p>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="text-gray-400 hover:text-gray-600 transition-colors md:hidden"
+            className="text-gray-400 hover:text-gray-600 transition-colors md:hidden p-1 touch-target-sm"
             aria-label="إغلاق القائمة"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6">
-          <nav className="flex flex-col gap-1 px-4">
+        <div className="flex-1 overflow-y-auto py-4 sm:py-6">
+          <nav className="flex flex-col gap-1 px-3 sm:px-4">
             {/* نظرة عامة - Overview Section */}
             {(() => {
               const item = overviewItem
@@ -157,7 +157,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-all duration-200 mb-2 ${
+                  className={`group relative flex items-center gap-2.5 sm:gap-3 rounded-lg px-3 py-2.5 sm:py-3 text-sm transition-all duration-200 mb-2 touch-target-sm ${
                     isActive
                       ? "bg-slate-700 text-white shadow-md"
                       : "text-slate-700 hover:bg-slate-200 hover:text-slate-800"
@@ -177,7 +177,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             })()}
             
             {/* الأكاديمي - Academic Section */}
-            <div className="mt-4 mb-3 px-2">
+            <div className="mt-3 sm:mt-4 mb-2 sm:mb-3 px-2">
               <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.15em] flex items-center gap-2">
                 <span className="h-px flex-1 bg-slate-300"></span>
                 أكاديمي
@@ -191,7 +191,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${
+                  className={`group relative flex items-center gap-2.5 sm:gap-3 rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 touch-target-sm ${
                     isActive
                       ? "bg-slate-200 text-slate-800 shadow-sm"
                       : "text-slate-700 hover:bg-slate-200 hover:text-slate-800"
@@ -211,7 +211,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             })}
             
             {/* التعليمي - Educational Section */}
-            <div className="mt-6 mb-3 px-2">
+            <div className="mt-4 sm:mt-6 mb-2 sm:mb-3 px-2">
               <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.15em] flex items-center gap-2">
                 <span className="h-px flex-1 bg-slate-300"></span>
                 تعليمي
@@ -225,7 +225,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${
+                  className={`group relative flex items-center gap-2.5 sm:gap-3 rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 touch-target-sm ${
                     isActive
                       ? "bg-slate-200 text-slate-800 shadow-sm"
                       : "text-slate-700 hover:bg-slate-200 hover:text-slate-800"
@@ -247,19 +247,19 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             </nav>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-100/50 p-4">
-          <div className="mb-3 flex items-center gap-3 rounded-lg bg-white p-3 border border-slate-200 shadow-sm">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200">
+        <div className="border-t border-slate-200 bg-slate-100/50 p-3 sm:p-4 safe-area-bottom">
+          <div className="mb-2 sm:mb-3 flex items-center gap-2.5 sm:gap-3 rounded-lg bg-white p-2.5 sm:p-3 border border-slate-200 shadow-sm">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-slate-200 flex-shrink-0">
               <Users className="h-4 w-4 text-slate-700" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-800 truncate">{user.name}</div>
-              <div className="text-xs text-slate-600">مدير النظام</div>
+              <div className="text-xs sm:text-sm font-semibold text-slate-800 truncate">{user.name}</div>
+              <div className="text-[10px] sm:text-xs text-slate-600">مدير النظام</div>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white hover:text-slate-800 transition-colors border border-slate-200"
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 sm:py-3 text-sm font-medium text-slate-700 hover:bg-white hover:text-slate-800 transition-colors border border-slate-200 touch-target-sm"
           >
             <LogOut className="h-4 w-4" />
             تسجيل الخروج
@@ -268,19 +268,19 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col">
-        {/* Top bar */}
-        <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white/80 backdrop-blur-sm px-4 py-3 md:px-6">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Top bar - Mobile Optimized */}
+        <header className="flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 bg-white/80 backdrop-blur-sm px-3 py-2.5 sm:px-4 md:px-6 safe-area-top">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="text-slate-400 hover:text-slate-600 transition-colors md:hidden p-1 rounded-md hover:bg-slate-100"
+              className="text-slate-400 hover:text-slate-600 transition-colors md:hidden p-1.5 rounded-md hover:bg-slate-100 touch-target-sm"
               aria-label="فتح القائمة"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div>
-              <h2 className="text-base font-semibold text-slate-800">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-semibold text-slate-800 truncate">
                 {(() => {
                   const allItems = [overviewItem, ...academicItems, ...educationalItems]
                   const found = allItems.find((n) => pathname === n.href)
@@ -292,7 +292,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                         : "لوحة التحكم")
                 })()}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[10px] sm:text-xs text-slate-500 truncate">
                 {(() => {
                   const allItems = [overviewItem, ...academicItems, ...educationalItems]
                   const found = allItems.find((n) => pathname === n.href)
@@ -303,7 +303,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <div className="flex-1 p-4 md:p-6">{children}</div>
+        <div className="flex-1 p-3 sm:p-4 md:p-6">{children}</div>
       </div>
     </div>
   )

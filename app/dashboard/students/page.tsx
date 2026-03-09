@@ -86,6 +86,10 @@ export default function StudentsPage() {
   const [sortBy, setSortBy] = useState<string>("name")
   const [addOpen, setAddOpen] = useState(false)
   const [viewStudent, setViewStudent] = useState<Student | null>(null)
+  
+  // Pagination state - show 10 students initially on mobile, 20 on desktop
+  const [displayCount, setDisplayCount] = useState(10)
+  const INITIAL_DISPLAY_COUNT = 10
 
   // New student form
   const [newName, setNewName] = useState("")
@@ -228,6 +232,10 @@ export default function StudentsPage() {
       }
       return comparison
     })
+  
+  // Get displayed students based on pagination
+  const displayedStudents = filteredStudents.slice(0, displayCount)
+  const hasMoreStudents = filteredStudents.length > displayCount
 
   // Export functions
   const exportToExcel = () => {
@@ -547,7 +555,10 @@ export default function StudentsPage() {
                   <Input
                     placeholder="البحث بالاسم، الهاتف، أو الملاحظات..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      setDisplayCount(INITIAL_DISPLAY_COUNT) // Reset pagination on search
+                    }}
                     className="pr-10 border-slate-200 focus:border-slate-400 focus:ring-slate-200"
                   />
                 </div>
@@ -556,7 +567,10 @@ export default function StudentsPage() {
               {/* Class Filter */}
               <div className="w-full md:w-48">
                 <Label className="text-xs text-slate-500 mb-2 block">الصف</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <Select value={selectedClass} onValueChange={(v) => {
+                  setSelectedClass(v)
+                  setDisplayCount(INITIAL_DISPLAY_COUNT) // Reset pagination on filter change
+                }}>
                   <SelectTrigger className="border-slate-200">
                     <SelectValue placeholder="جميع الصفوف" />
                   </SelectTrigger>
@@ -612,7 +626,7 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        {/* Students Grid */}
+        {/* Students Grid - Mobile Optimized with Pagination */}
         {filteredStudents.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
             <div className="flex flex-col items-center justify-center py-16">
@@ -631,152 +645,309 @@ export default function StudentsPage() {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200">
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      الطالب
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      العمر
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      الصف
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      هاتف ولي الأمر
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      التسجيل
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      الملاحظات
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider w-20">
-                      
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredStudents.map((student) => (
-                    <tr 
-                      key={student.id} 
-                      className="hover:bg-slate-50/50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium ${getAvatarColor(student.name)}`}>
-                            {getInitials(student.name)}
+          <>
+            {/* Results Count */}
+            <div className="flex items-center justify-between text-sm text-slate-500 mb-2">
+              <span>
+                يتم عرض {Math.min(displayCount, filteredStudents.length)} من {filteredStudents.length} طالب
+              </span>
+              {displayCount > INITIAL_DISPLAY_COUNT && (
+                <button
+                  onClick={() => setDisplayCount(INITIAL_DISPLAY_COUNT)}
+                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                >
+                  إظهار أقل
+                </button>
+              )}
+            </div>
+            
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200">
+                      <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        الطالب
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        العمر
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        الصف
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        هاتف ولي الأمر
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        التسجيل
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        الملاحظات
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider w-20">
+                        
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {displayedStudents.map((student) => (
+                      <tr 
+                        key={student.id} 
+                        className="hover:bg-slate-50/50 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium ${getAvatarColor(student.name)}`}>
+                              {getInitials(student.name)}
+                            </div>
+                            <div>
+                              <Link 
+                                href={`/dashboard/student/${student.id}`}
+                                className="font-medium text-slate-700 hover:text-slate-900 transition-colors"
+                              >
+                                {student.name}
+                              </Link>
+                            </div>
                           </div>
-                          <div>
-                            <Link 
-                              href={`/dashboard/student/${student.id}`}
-                              className="font-medium text-slate-700 hover:text-slate-900 transition-colors"
-                            >
-                              {student.name}
-                            </Link>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-sm text-slate-600">{student.age} سنة</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200 font-normal">
-                          {getClassName(student.classId)}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-center" dir="ltr">
-                        <span className="text-sm text-slate-600 font-mono">
-                          {student.parentPhone || "-"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-sm text-slate-500">
-                          {new Date(student.createdAt).toLocaleDateString("ar-EG", {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {(() => {
-                          const notes = parseNotes(student.notes || "")
-                          const notesCount = notes.length
-                          return notesCount > 0 ? (
-                            <Button
-                              asChild
-                              variant="outline"
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm text-slate-600">{student.age} سنة</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200 font-normal">
+                            {getClassName(student.classId)}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-center" dir="ltr">
+                          <span className="text-sm text-slate-600 font-mono">
+                            {student.parentPhone || "-"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm text-slate-500">
+                            {new Date(student.createdAt).toLocaleDateString("ar-EG", {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {(() => {
+                            const notes = parseNotes(student.notes || "")
+                            const notesCount = notes.length
+                            return notesCount > 0 ? (
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 transition-colors"
+                              >
+                                <Link href={`/dashboard/student/${student.id}/notes`}>
+                                  <StickyNote className="ml-1 h-3 w-3" />
+                                  <span className="text-xs font-medium">{notesCount}</span>
+                                </Link>
+                              </Button>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <div className="h-6 px-2 flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                                  <span className="text-gray-400 text-xs">-</span>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button 
+                              asChild 
+                              variant="ghost" 
                               size="sm"
-                              className="h-6 px-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 transition-colors"
+                              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                             >
-                              <Link href={`/dashboard/student/${student.id}/notes`}>
-                                <StickyNote className="ml-1 h-3 w-3" />
-                                <span className="text-xs font-medium">{notesCount}</span>
+                              <Link href={`/dashboard/class/${student.classId}`}>
+                                عرض
                               </Link>
                             </Button>
-                          ) : (
-                            <div className="flex items-center justify-center">
-                              <div className="h-6 px-2 flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
-                                <span className="text-gray-400 text-xs">-</span>
-                              </div>
-                            </div>
-                          )
-                        })()}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button 
-                            asChild 
-                            variant="ghost" 
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-white border-slate-200">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="text-slate-800">حذف الطالب</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-slate-500">
+                                    هل أنت متأكد من حذف الطالب &quot;{student.name}&quot;؟
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="flex gap-2">
+                                  <AlertDialogCancel className="border-slate-200 text-slate-600 hover:bg-slate-50">
+                                    إلغاء
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteStudent(student.id)}
+                                    className="bg-red-500 hover:bg-red-600 text-white"
+                                  >
+                                    حذف
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {displayedStudents.map((student) => (
+                <div 
+                  key={student.id}
+                  className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3"
+                >
+                  {/* Student Header */}
+                  <div className="flex items-start gap-3">
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 ${getAvatarColor(student.name)}`}>
+                      {getInitials(student.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Link 
+                        href={`/dashboard/student/${student.id}`}
+                        className="font-semibold text-slate-800 hover:text-slate-900 transition-colors block truncate"
+                      >
+                        {student.name}
+                      </Link>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal text-xs">
+                          {getClassName(student.classId)}
+                        </Badge>
+                        <span className="text-xs text-slate-500">{student.age} سنة</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  {student.parentPhone && (
+                    <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2" dir="ltr">
+                      <Phone className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      <span className="font-mono">{student.parentPhone}</span>
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const notes = parseNotes(student.notes || "")
+                        const notesCount = notes.length
+                        return notesCount > 0 ? (
+                          <Button
+                            asChild
+                            variant="outline"
                             size="sm"
-                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                            className="h-7 px-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 transition-colors text-xs"
                           >
-                            <Link href={`/dashboard/class/${student.classId}`}>
-                              عرض
+                            <Link href={`/dashboard/student/${student.id}/notes`}>
+                              <StickyNote className="ml-1 h-3 w-3" />
+                              <span className="text-xs font-medium">{notesCount} ملاحظة</span>
                             </Link>
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-slate-400 hover:text-red-500 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="bg-white border-slate-200">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="text-slate-800">حذف الطالب</AlertDialogTitle>
-                                <AlertDialogDescription className="text-slate-500">
-                                  هل أنت متأكد من حذف الطالب &quot;{student.name}&quot;؟
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="flex gap-2">
-                                <AlertDialogCancel className="border-slate-200 text-slate-600 hover:bg-slate-50">
-                                  إلغاء
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteStudent(student.id)}
-                                  className="bg-red-500 hover:bg-red-600 text-white"
-                                >
-                                  حذف
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        ) : null
+                      })()}
+                      <span className="text-xs text-slate-400">
+                        {new Date(student.createdAt).toLocaleDateString("ar-EG", {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        asChild 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2"
+                      >
+                        <Link href={`/dashboard/class/${student.classId}`}>
+                          عرض
+                        </Link>
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-slate-400 hover:text-red-500 hover:bg-red-50 h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-white border-slate-200">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-slate-800">حذف الطالب</AlertDialogTitle>
+                            <AlertDialogDescription className="text-slate-500">
+                              هل أنت متأكد من حذف الطالب &quot;{student.name}&quot;؟
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="flex gap-2">
+                            <AlertDialogCancel className="border-slate-200 text-slate-600 hover:bg-slate-50">
+                              إلغاء
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteStudent(student.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              حذف
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+            {/* Load More Button */}
+            {hasMoreStudents && (
+              <div className="flex justify-center py-4">
+                <Button
+                  onClick={() => setDisplayCount(prev => prev + INITIAL_DISPLAY_COUNT)}
+                  variant="outline"
+                  className="gap-2 border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  عرض المزيد
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
+                    {filteredStudents.length - displayCount} متبقي
+                  </span>
+                </Button>
+              </div>
+            )}
+            
+            {/* Show Less Button (when showing more than initial) */}
+            {displayCount > INITIAL_DISPLAY_COUNT && filteredStudents.length <= displayCount && (
+              <div className="flex justify-center py-4">
+                <Button
+                  onClick={() => setDisplayCount(INITIAL_DISPLAY_COUNT)}
+                  variant="ghost"
+                  className="text-slate-500 hover:text-slate-700"
+                >
+                  إظهار أقل
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

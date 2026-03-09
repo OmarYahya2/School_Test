@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import type { SchoolClass, Student, Teacher, AttendanceRecord } from "@/lib/store"
+import type { AttendanceWithNames } from "@/lib/supabase-school"
 import { fetchClassById, fetchStudentsByClass, createStudent, deleteStudentById, fetchAttendanceByClass, saveAttendanceRecord, updateStudentById } from "@/lib/supabase-school"
 import { fetchTeachers } from "@/lib/supabase-teachers"
 
@@ -64,7 +65,7 @@ export default function ClassDetailPage() {
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [teacher, setTeacher] = useState<Teacher | null>(null)
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
+  const [attendance, setAttendance] = useState<AttendanceWithNames[]>([])
   const [addOpen, setAddOpen] = useState(false)
 
   // New student form
@@ -760,7 +761,7 @@ type Note = {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2" dir="rtl">
+                <div className="space-y-3" dir="rtl">
                   {attendance
                     .sort((a, b) => b.date.localeCompare(a.date))
                     .slice(0, 10)
@@ -768,24 +769,39 @@ type Note = {
                       const present = record.records.filter((r) => r.present).length
                       const absent = record.records.length - present
                       const rate = Math.round((present / record.records.length) * 100)
+                      
+                      // Get names of absent students
+                      const absentStudents = record.records
+                        .filter(r => !r.present)
+                        .map(r => r.studentName)
+                        .slice(0, 3) // Show max 3 names
+                      
                       return (
                         <div
                           key={record.id}
-                          className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100"
+                          className="p-3 bg-white rounded-lg border border-slate-100"
                         >
-                          <div className="flex items-center gap-3">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-700 font-medium" dir="ltr">{record.date}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <span className="text-gray-700 font-medium" dir="ltr">{record.date}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                                حاضر: {present}
+                              </Badge>
+                              <Badge className="bg-rose-100 text-rose-700 border-rose-200">
+                                غائب: {absent}
+                              </Badge>
+                              <span className="text-sm font-medium text-gray-600 w-12 text-left">{rate}%</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                              حاضر: {present}
-                            </Badge>
-                            <Badge className="bg-rose-100 text-rose-700 border-rose-200">
-                              غائب: {absent}
-                            </Badge>
-                            <span className="text-sm font-medium text-gray-600 w-12 text-left">{rate}%</span>
-                          </div>
+                          {absentStudents.length > 0 && (
+                            <div className="text-xs text-rose-600 bg-rose-50 rounded px-2 py-1">
+                              الغائبون: {absentStudents.join(", ")}
+                              {absent < record.records.filter(r => !r.present).length && ` وآخرون`}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
