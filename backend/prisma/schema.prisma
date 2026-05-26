@@ -1,0 +1,160 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("teacher") // "admin" or "teacher"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Teacher {
+  id                 String              @id @default(uuid())
+  name               String
+  phone              String
+  subject            String
+  createdAt          DateTime            @default(now()) @map("created_at")
+  classes            Class[]
+  grades             Grade[]
+  teacherAssignments TeacherAssignment[]
+  subjectFiles       SubjectFile[]
+  scheduleItems      ScheduleItem[]
+
+  @@map("teachers")
+}
+
+model Class {
+  id            String             @id @default(uuid())
+  name          String
+  teacherId     String?            @map("teacher_id")
+  teacher       Teacher?           @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  notes         String             @default("")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  students      Student[]
+  attendance    AttendanceRecord[]
+  scheduleItems ScheduleItem[]
+
+  @@index([teacherId])
+  @@map("classes")
+}
+
+model Student {
+  id          String   @id @default(uuid())
+  name        String
+  age         Int
+  classId     String   @map("class_id")
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  parentPhone String   @map("parent_phone")
+  notes       String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+  grades      Grade[]
+
+  @@index([classId])
+  @@map("students")
+}
+
+model AttendanceRecord {
+  id        String   @id @default(uuid())
+  classId   String   @map("class_id")
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  records   Json     @default("[]") // [{ "studentId": "...", "present": true }]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([classId, date])
+  @@map("attendance_records")
+}
+
+model ScheduleItem {
+  id           String   @id @default(uuid())
+  classId      String   @map("class_id")
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  semester     Int      @default(1)
+  dayOfWeek    Int      @map("day_of_week")
+  periodNumber Int      @map("period_number")
+  subject      String
+  teacherId    String?  @map("teacher_id")
+  teacher      Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  startTime    String   @map("start_time")
+  endTime      String   @map("end_time")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([classId, semester, dayOfWeek, periodNumber])
+  @@index([teacherId])
+  @@map("schedule")
+}
+
+model Grade {
+  id           String   @id @default(uuid())
+  studentId    String   @map("student_id")
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject      String
+  grade        Float
+  maxGrade     Float    @map("max_grade")
+  semester     String   @default("first")
+  academicYear String   @default("2026") @map("academic_year")
+  examType     String   @default("exam") @map("exam_type")
+  teacherId    String?  @map("teacher_id")
+  teacher      Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  notes        String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@map("grades")
+}
+
+model TeacherAssignment {
+  id        String   @id @default(uuid())
+  teacherId String   @map("teacher_id")
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  gradeId   Int      @map("grade_id")
+  semester  String
+  subject   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([gradeId, semester, subject])
+  @@index([teacherId])
+  @@map("teacher_assignments")
+}
+
+model SubjectFile {
+  id          String   @id @default(uuid())
+  gradeId     Int      @map("grade_id")
+  semester    String
+  subject     String
+  teacherId   String   @map("teacher_id")
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title       String
+  description String   @default("")
+  type        String
+  url         String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([gradeId])
+  @@index([teacherId])
+  @@map("subject_files")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

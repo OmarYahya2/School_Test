@@ -1,54 +1,69 @@
-# School Management System
+# School Management System (نظام إدارة مدرسي متكامل)
 
-نظام إدارة مدرسي متكامل مبني على Next.js و Supabase
+This project has been restructured and migrated from direct Supabase integration to a professional Node.js Express backend with Prisma ORM and PostgreSQL database.
 
-## المميزات
+تمت إعادة هيكلة هذا المشروع وترحيله من التكامل المباشر مع Supabase إلى خادم Node.js Express احترافي باستخدام Prisma ORM وقاعدة بيانات PostgreSQL.
 
-- إدارة الطلاب والصفوف الدراسية
-- نظام تقييم وإدارة العلامات
-- متابعة الحضور والغيابات
-- إدارة الملاحظات الطلابية
-- رموز QR للوصول السريع للصفوف
-- واجهة مستخدم عربية متجاوبة
+---
 
-## التقنيات المستخدمة
+## Repository Structure (هيكل المشروع)
 
-- **Frontend**: Next.js 16, React 19, TypeScript
-- **Backend**: Supabase
-- **UI**: Tailwind CSS, Radix UI
-- **Icons**: Lucide React
-- **Charts**: Recharts
-- **Deployment**: Vercel
+```text
+scool/
+├── frontend/   → Next.js 16 (React 19 + TypeScript) Web UI
+├── backend/    → Node.js + Express + Prisma (PostgreSQL API)
+└── README.md   → Monorepo documentation
+```
 
-## التثبيت والتشغيل
+---
 
-1. تثبيت الاعتماديات:
-   ```bash
-   npm install
-   ```
+## 🚀 Getting Started (البدء والتشغيل)
 
-2. إعداد متغيرات البيئة:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+### 1. Database Setup (إعداد قاعدة البيانات)
 
-3. تشغيل الخادم التطويري:
-   ```bash
-   npm run dev
-   ```
+Ensure you have a PostgreSQL database running (e.g. locally or on Neon).
+تأكد من تشغيل قاعدة بيانات PostgreSQL (محلياً أو على Neon).
 
-4. بناء المشروع للنشر:
-   ```bash
-   npm run build
-   ```
+In `backend/.env`, configure your database URL:
+في ملف `backend/.env` قم بضبط رابط قاعدة البيانات:
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/scool?schema=public"
+```
 
-## النشر على Vercel
+### 2. Backend Setup & Run (إعداد وتشغيل الخادم الخلفي)
 
-المشروع جاهز للنشر على Vercel مع:
+Navigate to the backend directory, install dependencies, sync the database schema, and run the development server:
+انتقل إلى مجلد backend، ثم قم بتثبيت الاعتماديات، ومزامنة الجداول، وتشغيل الخادم:
 
-- إعدادات Build مكتملة
-- متغيرات البيئة محددة
-- ملف vercel.json للإعدادات المخصصة
-- .gitignore محدث للنشر
+```bash
+cd backend
+npm install
+npm run prisma:generate
+npx prisma db push
+npm run dev
+```
 
+The backend server will run on `http://localhost:3001`.
+
+### 3. Frontend Setup & Run (إعداد وتشغيل الواجهة الأمامية)
+
+Navigate to the frontend directory, install dependencies, and run the Next.js development server:
+انتقل إلى مجلد frontend، وثبت الاعتماديات، وشغل واجهة Next.js:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will run on `http://localhost:3000`.
+
+---
+
+## 🛠️ Technology Stack (التقنيات المستخدمة)
+
+- **Frontend**: Next.js 16, React 19, Tailwind CSS, TypeScript
+- **Backend API**: Node.js, Express.js
+- **ORM**: Prisma Client
+- **Database**: PostgreSQL (Neon / Local)
+- **Auth**: JSON Web Tokens (JWT)
