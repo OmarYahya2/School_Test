@@ -4,8 +4,8 @@ import type { AttendanceRecord } from "../store";
 export async function fetchAttendanceByClassRaw(classId: string): Promise<AttendanceRecord[]> {
   try {
     return await client.get<AttendanceRecord[]>(`/attendance/class/${classId}`);
-  } catch (error) {
-    console.error("fetchAttendanceByClassRaw error:", error);
+  } catch (error: any) {
+    console.error("fetchAttendanceByClassRaw error:", error?.message || error?.status || error);
     return [];
   }
 }
@@ -21,8 +21,8 @@ export async function saveAttendanceRecord(
       date,
       records,
     });
-  } catch (error) {
-    console.error("saveAttendanceRecord error:", error);
+  } catch (error: any) {
+    console.error("saveAttendanceRecord error:", error?.message || error?.status || error);
     return null;
   }
 }
@@ -56,8 +56,8 @@ export async function fetchAttendanceByStudent(
     });
     
     return studentRecords;
-  } catch (error) {
-    console.error("fetchAttendanceByStudent error:", error);
+  } catch (error: any) {
+    console.error("fetchAttendanceByStudent error:", error?.message || error?.status || error);
     return [];
   }
 }

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useLanguage } from "@/lib/i18n/context"
 import {
   FileText,
   Plus,
@@ -29,12 +30,11 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import type { SubjectFile, Teacher } from "@/lib/store"
 import {
-  fetchSubjectFiles,
   createSubjectFile,
   deleteSubjectFileById,
   uploadSubjectFileAsset,
 } from "@/lib/supabase-files"
-import { fetchTeachers } from "@/lib/supabase-teachers"
+import { useAdminAllFiles, useAdminTeachers } from "@/lib/hooks/use-admin-data"
 
 const grades = [
   { id: 1, name: "الصف الأول" },
@@ -79,8 +79,10 @@ function FileTypeIcon({ type }: { type: SubjectFile["type"] }) {
 }
 
 export default function SubjectFilesPage() {
-  const [files, setFiles] = useState<SubjectFile[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const { t, language } = useLanguage()
+  const fp = t.filesPage
+  const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = useAdminAllFiles()
+  const { data: teachers = [] } = useAdminTeachers()
   const [showForm, setShowForm] = useState(false)
 
   // Filters
@@ -99,21 +101,7 @@ export default function SubjectFilesPage() {
   const [formUrl, setFormUrl] = useState("")
   const [formFile, setFormFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const loadData = useCallback(async () => {
-    try {
-      const [allFiles, t] = await Promise.all([fetchSubjectFiles(), fetchTeachers()])
-      setFiles(allFiles || [])
-      setTeachers(t || [])
-    } catch (error) {
-      console.error(error)
-      toast.error("فشل في تحميل البيانات")
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadData()
-  }, [loadData])
+  const filesLoadingState = filesLoading
 
   const filteredFiles = files.filter((f) => {
     if (!areFiltersSelected) return false
@@ -128,11 +116,11 @@ export default function SubjectFilesPage() {
 
   async function handleAdd() {
     if (!areFiltersSelected) {
-      toast.error("يرجى اختيار جميع الفلاتر أولاً")
+      toast.error(t.forms.required)
       return
     }
     if (!formTitle.trim()) {
-      toast.error("يرجى إدخال عنوان الملف")
+      toast.error(fp.fileName)
       return
     }
     
@@ -143,7 +131,7 @@ export default function SubjectFilesPage() {
       if (formType !== "link") {
         if (!formFile) {
           if (!finalUrl) {
-            toast.error("يرجى اختيار ملف أو إدخال رابط")
+            toast.error(fp.uploadFile)
             setIsSubmitting(false)
             return
           }
@@ -151,7 +139,7 @@ export default function SubjectFilesPage() {
           const folder = `${filterGrade}/${filterSemester}/${filterSubject}`
           const uploadedUrl = await uploadSubjectFileAsset(formFile, folder)
           if (!uploadedUrl) {
-            toast.error("فشل رفع الملف، تحقق من إعدادات Supabase Storage")
+            toast.error(t.dashboard.loadingError)
             setIsSubmitting(false)
             return
           }
@@ -159,7 +147,7 @@ export default function SubjectFilesPage() {
         }
       } else {
         if (!finalUrl) {
-          toast.error("يرجى إدخال الرابط")
+          toast.error(fp.viewFile)
           setIsSubmitting(false)
           return
         }
@@ -177,7 +165,7 @@ export default function SubjectFilesPage() {
       )
 
       if (!created) {
-        toast.error("حدث خطأ أثناء إضافة الملف")
+        toast.error(t.dashboard.loadingError)
         setIsSubmitting(false)
         return
       }
@@ -187,44 +175,44 @@ export default function SubjectFilesPage() {
       setFormUrl("")
       setFormFile(null)
       setShowForm(false)
-      void loadData()
-      toast.success("تم إضافة الملف بنجاح")
+      void refetchFiles()
+      toast.success(fp.uploadSuccess)
     } catch (error) {
       console.error(error)
-      toast.error("حدث خطأ غير متوقع")
+      toast.error(t.dashboard.loadingError)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("هل أنت متأكد من حذف هذا الملف؟")) return
+    if (!confirm(t.actions.delete)) return
     try {
       await deleteSubjectFileById(id)
-      void loadData()
-      toast.success("تم حذف الملف")
+      void refetchFiles()
+      toast.success(fp.deleteSuccess)
     } catch (error) {
       console.error(error)
-      toast.error("فشل في حذف الملف")
+      toast.error(t.dashboard.loadingError)
     }
   }
 
   return (
-    <div className="space-y-8 pb-12" dir="rtl">
+    <div className={`space-y-8 pb-12 ${language === "ar" ? "text-right" : "text-left"}`} dir={language === "ar" ? "rtl" : "ltr"}>
       {/* Header and Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
-            <span className="text-xs font-semibold tracking-wider text-indigo-600 uppercase bg-indigo-50 px-2.5 py-1 rounded-full">
-              المكتبة الرقمية
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs font-semibold tracking-wider text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-full">
+              {fp.title}
             </span>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            ملفات المواد الدراسية
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
+            {fp.title}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            إدارة وتنظيم الملفات التعليمية، أوراق العمل والمراجع للطلاب.
+          <p className="text-sm text-muted-foreground mt-1">
+            {fp.noFilesDesc}
           </p>
         </div>
 
@@ -234,33 +222,33 @@ export default function SubjectFilesPage() {
           className={`h-11 shadow-sm gap-2 px-6 rounded-xl transition-all duration-300 font-medium ${
             showForm 
               ? "bg-rose-500 hover:bg-rose-600 text-white" 
-              : "bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-100 disabled:text-slate-400"
+              : "bg-primary hover:bg-primary/90 text-primary-foreground"
           }`}
         >
           {showForm ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-          {showForm ? "إلغاء العملية" : "إضافة ملف جديد"}
+          {showForm ? t.actions.cancel : fp.uploadFile}
         </Button>
       </div>
 
       {/* Filter Selector Panel */}
-      <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden border border-slate-100/80">
+      <Card className="border-0 shadow-sm bg-card rounded-2xl overflow-hidden border border-border/50">
         <CardContent className="p-5">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Filter className="h-4.5 w-4.5 text-indigo-500" />
-              <span className="text-sm font-semibold text-slate-700">تصفية حسب الصف والمادة</span>
+            <div className="flex items-center gap-2 border-b border-border/30 pb-3">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">{fp.subject} / {fp.class}</span>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Teacher */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500 font-medium">المعلم المشرف</Label>
+                <Label className="text-xs text-muted-foreground font-medium">{t.schedulePage.teacher}</Label>
                 <select
                   value={filterTeacher}
                   onChange={(e) => setFilterTeacher(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
                 >
-                  <option value="">اختر المعلم</option>
+                  <option value="">{t.forms.selectTeacher}</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -271,7 +259,7 @@ export default function SubjectFilesPage() {
 
               {/* Grade */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500 font-medium">الصف الدراسي</Label>
+                <Label className="text-xs text-muted-foreground font-medium">{fp.class}</Label>
                 <select
                   value={filterGrade}
                   onChange={(e) =>
@@ -279,9 +267,9 @@ export default function SubjectFilesPage() {
                       e.target.value === "" ? "" : Number(e.target.value)
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
                 >
-                  <option value="">اختر الصف</option>
+                  <option value="">{t.forms.selectClass}</option>
                   {grades.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
@@ -292,27 +280,27 @@ export default function SubjectFilesPage() {
 
               {/* Semester */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500 font-medium">الفصل الدراسي</Label>
+                <Label className="text-xs text-muted-foreground font-medium">{t.forms.semester}</Label>
                 <select
                   value={filterSemester}
                   onChange={(e) => setFilterSemester(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
                 >
-                  <option value="">اختر الفصل</option>
-                  <option value="first">الفصل الأول</option>
-                  <option value="second">الفصل الثاني</option>
+                  <option value="">{t.forms.semester}</option>
+                  <option value="first">{t.teachersPage.firstSemester}</option>
+                  <option value="second">{t.teachersPage.secondSemester}</option>
                 </select>
               </div>
 
               {/* Subject */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500 font-medium">المادة التعليمية</Label>
+                <Label className="text-xs text-muted-foreground font-medium">{fp.subject}</Label>
                 <select
                   value={filterSubject}
                   onChange={(e) => setFilterSubject(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
                 >
-                  <option value="">اختر المادة</option>
+                  <option value="">{t.forms.selectSubject}</option>
                   {subjectsList.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -334,30 +322,30 @@ export default function SubjectFilesPage() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <Card className="border-0 shadow-md bg-white rounded-2xl border border-indigo-100/50 overflow-hidden">
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
-                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-indigo-500" />
-                  رفع ملف أو إضافة رابط جديد للمجموعة المحددة
+            <Card className="border-0 shadow-md bg-card rounded-2xl border border-primary/20 overflow-hidden">
+              <CardHeader className="bg-muted/40 border-b border-border/30 pb-4">
+                <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-primary" />
+                  {fp.uploadFile}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-slate-700">عنوان الملف أو المستند *</Label>
+                    <Label className="text-sm font-semibold text-foreground">{fp.fileName}</Label>
                     <Input
                       value={formTitle}
                       onChange={(e) => setFormTitle(e.target.value)}
-                      placeholder="مثال: مراجعة نهائية لمادة الرياضيات"
-                      className="bg-white border-slate-200 focus:border-indigo-500 focus:ring-indigo-100 rounded-xl h-11"
+                      placeholder={fp.fileName}
+                      className="bg-background border-border focus:border-primary rounded-xl h-11"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-slate-700">نوع المحتوى التعليمي *</Label>
+                    <Label className="text-sm font-semibold text-foreground">{fp.subject}</Label>
                     <select
                       value={formType}
                       onChange={(e) => setFormType(e.target.value as SubjectFile["type"])}
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
                     >
                       {fileTypes.map((ft) => (
                         <option key={ft.value} value={ft.value}>
@@ -368,8 +356,8 @@ export default function SubjectFilesPage() {
                   </div>
                   
                   <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-sm font-semibold text-slate-700">
-                      {formType === "link" ? "الرابط الإلكتروني للملف *" : "اختر ملفاً من جهازك *"}
+                    <Label className="text-sm font-semibold text-foreground">
+                      {formType === "link" ? fp.viewFile : fp.uploadFile}
                     </Label>
                     {formType === "link" ? (
                       <Input
@@ -378,7 +366,7 @@ export default function SubjectFilesPage() {
                         onChange={(e) => setFormUrl(e.target.value)}
                         placeholder="https://example.com/document"
                         dir="ltr"
-                        className="bg-white border-slate-200 focus:border-indigo-500 focus:ring-indigo-100 rounded-xl h-11"
+                        className="bg-background border-border focus:border-primary rounded-xl h-11"
                       />
                     ) : (
                       <div className="relative group">
@@ -399,19 +387,19 @@ export default function SubjectFilesPage() {
                                 : null
                             )
                           }
-                          className="bg-white border-slate-200 focus:border-indigo-500 focus:ring-indigo-100 rounded-xl h-11 file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded-lg file:px-3 file:py-1 file:ml-3 file:cursor-pointer cursor-pointer"
+                          className="bg-background border-border focus:border-primary rounded-xl h-11 file:bg-primary/10 file:text-primary file:border-0 file:rounded-lg file:px-3 file:py-1 file:ml-3 file:cursor-pointer cursor-pointer"
                         />
                       </div>
                     )}
                   </div>
                   
                   <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-sm font-semibold text-slate-700">وصف أو ملاحظات إضافية (اختياري)</Label>
+                    <Label className="text-sm font-semibold text-foreground">{t.forms.notes} ({t.forms.optional})</Label>
                     <Input
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
-                      placeholder="اكتب تفاصيل إضافية لمساعدة الطلاب..."
-                      className="bg-white border-slate-200 focus:border-indigo-500 focus:ring-indigo-100 rounded-xl h-11"
+                      placeholder={t.forms.notes}
+                      className="bg-background border-border focus:border-primary rounded-xl h-11"
                     />
                   </div>
                 </div>
@@ -420,16 +408,16 @@ export default function SubjectFilesPage() {
                   <Button
                     onClick={handleAdd}
                     disabled={isSubmitting}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 h-11 gap-2 shadow-md transition-all duration-200"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 h-11 gap-2 shadow-md transition-all duration-200"
                   >
-                    {isSubmitting ? "جاري الرفع..." : "إضافة وتأكيد"}
+                    {isSubmitting ? "..." : fp.uploadFile}
                   </Button>
                   <Button 
                     variant="outline" 
                     onClick={() => setShowForm(false)} 
-                    className="border-slate-200 rounded-xl h-11 px-6 hover:bg-slate-50 transition-all"
+                    className="border-border rounded-xl h-11 px-6 transition-all"
                   >
-                    إلغاء
+                    {t.actions.cancel}
                   </Button>
                 </div>
               </CardContent>
@@ -440,56 +428,56 @@ export default function SubjectFilesPage() {
 
       {/* Main Files Display */}
       {!areFiltersSelected ? (
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 rounded-2xl border border-indigo-100/40">
+        <Card className="border-0 shadow-sm bg-card rounded-2xl border border-border/50">
           <CardContent className="p-16 text-center">
-            <div className="h-20 w-20 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-100 shadow-sm">
-              <Filter className="h-10 w-10 text-indigo-600" />
+            <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-primary/20 shadow-sm">
+              <Filter className="h-10 w-10 text-primary" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">يرجى تحديد خيارات التصفية أولاً</h3>
-            <p className="text-slate-500 mb-8 max-w-md mx-auto text-sm leading-relaxed">
-              لعرض الملفات المتاحة أو رفع مستندات تعليمية جديدة، يرجى ملء حقول التصفية العلوية لتحديد المعلم، الصف الدراسي، الفصل والمادة.
+            <h3 className="text-xl font-bold text-foreground mb-2">{fp.noFiles}</h3>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto text-sm leading-relaxed">
+              {fp.noFilesDesc}
             </p>
             <div className="flex flex-wrap justify-center gap-2.5 max-w-lg mx-auto">
-              <Badge className="bg-white text-indigo-700 hover:bg-white border border-indigo-100 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
-                المعلم المشرف
+              <Badge className="bg-card text-primary border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                {t.schedulePage.teacher}
               </Badge>
-              <Badge className="bg-white text-indigo-700 hover:bg-white border border-indigo-100 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
-                الصف الدراسي
+              <Badge className="bg-card text-primary border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                {fp.class}
               </Badge>
-              <Badge className="bg-white text-indigo-700 hover:bg-white border border-indigo-100 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
-                الفصل الدراسي
+              <Badge className="bg-card text-primary border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                {t.forms.semester}
               </Badge>
-              <Badge className="bg-white text-indigo-700 hover:bg-white border border-indigo-100 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
-                المادة التعليمية
+              <Badge className="bg-card text-primary border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+                {fp.subject}
               </Badge>
             </div>
           </CardContent>
         </Card>
       ) : filteredFiles.length === 0 ? (
-        <Card className="border-0 shadow-sm bg-white rounded-2xl border border-slate-100">
+        <Card className="border-0 shadow-sm bg-card rounded-2xl border border-border/50">
           <CardContent className="p-16 text-center">
-            <div className="h-20 w-20 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-slate-100">
-              <FolderOpen className="h-10 w-10 text-slate-400" />
+            <div className="h-20 w-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-5 border border-border/50">
+              <FolderOpen className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">لا توجد ملفات متوفرة</h3>
-            <p className="text-slate-500 mb-6 text-sm max-w-sm mx-auto">
-              لم نجد أي مستندات أو مراجع تعليمية مضافة لهذه الفلاتر المحددة حالياً.
+            <h3 className="text-lg font-bold text-foreground mb-1">{fp.noFiles}</h3>
+            <p className="text-muted-foreground mb-6 text-sm max-w-sm mx-auto">
+              {fp.noFilesDesc}
             </p>
             <Button 
               onClick={() => setShowForm(true)} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 h-10 gap-2 shadow-sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-5 h-10 gap-2 shadow-sm"
             >
-              <Plus className="h-4.5 w-4.5" />
-              إضافة أول ملف
+              <Plus className="h-4 w-4" />
+              {fp.uploadFile}
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-semibold text-slate-500 flex items-center gap-1.5">
-              <span>الملفات المتاحة</span>
-              <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-bold">
+            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+              <span>{fp.title}</span>
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-bold">
                 {filteredFiles.length}
               </span>
             </h3>
@@ -506,12 +494,12 @@ export default function SubjectFilesPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: Math.min(idx * 0.05, 0.4) }}
                 >
-                  <Card className="border-0 shadow-sm hover:shadow-md bg-white rounded-2xl border border-slate-100 overflow-hidden group transition-all duration-300 flex flex-col h-full">
+                  <Card className="border-0 shadow-sm hover:shadow-md bg-card rounded-2xl border border-border/50 overflow-hidden group transition-all duration-300 flex flex-col h-full">
                     <CardContent className="p-5 flex-1 flex flex-col justify-between">
                       <div>
                         {/* Type Icon and Title */}
                         <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 shrink-0 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all duration-300">
+                          <div className="h-10 w-10 bg-muted rounded-xl flex items-center justify-center border border-border/50 shrink-0 group-hover:bg-primary/10 group-hover:border-primary/20 transition-all duration-300">
                             <FileTypeIcon type={file.type} />
                           </div>
                           
@@ -519,7 +507,7 @@ export default function SubjectFilesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-lg"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg"
                               asChild
                             >
                               <a href={file.url} target="_blank" rel="noopener noreferrer">
@@ -534,7 +522,7 @@ export default function SubjectFilesPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDelete(file.id)}
-                              className="h-8 w-8 p-0 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 rounded-lg"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -542,38 +530,38 @@ export default function SubjectFilesPage() {
                         </div>
 
                         {/* Title and details */}
-                        <h4 className="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors duration-200 line-clamp-1 mb-1.5">
+                        <h4 className="text-base font-bold text-foreground group-hover:text-primary transition-colors duration-200 line-clamp-1 mb-1.5">
                           {file.title}
                         </h4>
                         
                         {file.description ? (
-                          <p className="text-xs text-slate-500 line-clamp-2 mb-4 leading-relaxed">
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
                             {file.description}
                           </p>
                         ) : (
-                          <p className="text-xs text-slate-400 italic mb-4">
-                            لا يوجد وصف للمستند.
+                          <p className="text-xs text-muted-foreground/60 italic mb-4">
+                            {t.table.noData}
                           </p>
                         )}
                       </div>
 
                       {/* Footer Badge Row */}
-                      <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-2">
+                      <div className="pt-3 border-t border-border/30 mt-auto flex flex-col gap-2">
                         {teacher && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                            <User className="h-3.5 w-3.5 text-slate-400" />
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <User className="h-3.5 w-3.5 text-muted-foreground/60" />
                             <span className="font-medium truncate">{teacher.name}</span>
                           </div>
                         )}
                         
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
                             {gradeName}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
-                            {file.semester === "first" ? "الفصل الأول" : "الفصل الثاني"}
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                            {file.semester === "first" ? t.teachersPage.firstSemester : t.teachersPage.secondSemester}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
                             {file.subject}
                           </span>
                         </div>
@@ -589,3 +577,4 @@ export default function SubjectFilesPage() {
     </div>
   )
 }
+

@@ -30,5 +30,9 @@ exports.teacherAssignmentValidator = [
         .trim()
         .notEmpty()
         .withMessage("Subject name is required"),
+    (0, express_validator_1.body)("classId")
+        .optional()
+        .isUUID()
+        .withMessage("Class ID must be a valid UUID"),
 ];
 //# sourceMappingURL=teacher.validator.js.map

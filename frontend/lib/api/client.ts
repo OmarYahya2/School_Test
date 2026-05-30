@@ -30,10 +30,21 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkErr) {
+    throw {
+      status: 0,
+      message: networkErr instanceof Error
+        ? `Network error: ${networkErr.message}`
+        : "Network error: unable to reach the server",
+      errors: null,
+    };
+  }
 
   const text = await response.text();
   let json: any = {};
@@ -52,9 +63,21 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       typeof window !== "undefined"
     ) {
       const refreshToken = localStorage.getItem("refresh_token");
+      if (!refreshToken) {
+        localStorage.removeItem("auth_token");
+        if (window.location.pathname.startsWith("/dashboard")) {
+          window.location.href = "/login";
+        }
+        throw {
+          status: 401,
+          message: "Not authenticated.",
+          silent: true,
+        };
+      }
       if (refreshToken) {
         if (!isRefreshing) {
           isRefreshing = true;
+          let newToken: string | null = null;
           try {
             const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
               method: "POST",
@@ -65,13 +88,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json();
               if (refreshData.success && refreshData.data?.token) {
-                const newToken = refreshData.data.token;
-                localStorage.setItem("auth_token", newToken);
+                newToken = refreshData.data.token;
+                localStorage.setItem("auth_token", newToken!);
                 if (refreshData.data.refreshToken) {
                   localStorage.setItem("refresh_token", refreshData.data.refreshToken);
                 }
                 isRefreshing = false;
-                onRefreshed(newToken);
+                onRefreshed(newToken!);
               } else {
                 throw new Error("Invalid refresh payload");
               }
@@ -80,6 +103,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
             }
           } catch (err) {
             isRefreshing = false;
+            refreshSubscribers = [];
             localStorage.removeItem("auth_token");
             localStorage.removeItem("refresh_token");
             window.location.href = "/login";
@@ -88,9 +112,31 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
               message: "Session expired. Please log in again.",
             };
           }
+
+          // Refresh succeeded — retry this specific request with the new token
+          headers.set("Authorization", `Bearer ${newToken!}`);
+          const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers,
+          });
+          const retryText = await retryResponse.text();
+          let retryJson: any = {};
+          try {
+            retryJson = retryText ? JSON.parse(retryText) : {};
+          } catch {
+            retryJson = { success: false, message: "Response parsing failed" };
+          }
+          if (!retryResponse.ok) {
+            throw {
+              status: retryResponse.status,
+              message: retryJson.message || "Request failed",
+              errors: retryJson.errors,
+            };
+          }
+          return retryJson.data;
         }
 
-        // Wait for the token refresh process and retry original request
+        // A refresh is already in progress — subscribe and retry when done
         return new Promise<T>((resolve, reject) => {
           subscribeTokenRefresh((newToken) => {
             headers.set("Authorization", `Bearer ${newToken}`);
@@ -153,4 +199,11 @@ export const client = {
     
   delete: <T>(endpoint: string, options?: RequestInit) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
+
+  patch: <T>(endpoint: string, body?: any, options?: RequestInit) =>
+    request<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    }),
 };

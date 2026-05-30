@@ -5,7 +5,8 @@ export async function fetchTeachers(): Promise<Teacher[]> {
   try {
     return await client.get<Teacher[]>("/teachers");
   } catch (error) {
-    console.error("fetchTeachers error:", error);
+    const { status = 0, message = "Unknown error", silent = false } = (error as any) ?? {};
+    if (!silent) console.error(`fetchTeachers error [${status}]: ${message}`);
     return [];
   }
 }
@@ -35,7 +36,8 @@ export async function fetchTeacherAssignments(): Promise<TeacherAssignment[]> {
   try {
     return await client.get<TeacherAssignment[]>("/teachers/assignments");
   } catch (error) {
-    console.error("fetchTeacherAssignments error:", error);
+    const { status = 0, message = "Unknown error", silent = false } = (error as any) ?? {};
+    if (!silent) console.error(`fetchTeacherAssignments error [${status}]: ${message}`);
     return [];
   }
 }
@@ -44,7 +46,8 @@ export async function createTeacherAssignment(
   teacherId: string,
   gradeId: number,
   semester: string,
-  subject: string
+  subject: string,
+  classId?: string
 ): Promise<TeacherAssignment | null> {
   try {
     return await client.post<TeacherAssignment>("/teachers/assignments", {
@@ -52,9 +55,10 @@ export async function createTeacherAssignment(
       gradeId,
       semester,
       subject,
+      classId,
     });
-  } catch (error) {
-    console.error("createTeacherAssignment error:", error);
+  } catch (error: any) {
+    console.error("createTeacherAssignment error:", JSON.stringify(error));
     return null;
   }
 }

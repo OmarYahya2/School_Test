@@ -18,5 +18,6 @@ router.post("/login", authLimiter, auth_validator_1.loginValidator, validate_mid
 router.post("/refresh", authLimiter, auth_controller_1.AuthController.refresh);
 router.post("/logout", auth_controller_1.AuthController.logout);
 router.get("/me", auth_middleware_1.authenticate, auth_controller_1.AuthController.me);
+router.put("/me", auth_middleware_1.authenticate, auth_controller_1.AuthController.updateMe);
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map

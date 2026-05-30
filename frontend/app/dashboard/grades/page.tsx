@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import {
   Plus,
@@ -57,46 +58,21 @@ import {
 import { toast } from "sonner"
 import type { Student, SchoolClass, Teacher, Grade } from "@/lib/store"
 import {
-  fetchGrades,
-  fetchStudents,
-  fetchClasses,
-  fetchTeachers,
   createGrade,
   deleteGrade,
 } from "@/lib/supabase-school"
-import { motion, AnimatePresence } from "framer-motion"
+import { useAdminGrades, useAdminStudents, useAdminClasses, useAdminTeachers } from "@/lib/hooks/use-admin-data"
+import { motion, AnimatePresence, type Variants } from "framer-motion"
+import { useLanguage } from "@/lib/i18n/context"
 
 const ACADEMIC_YEARS = ["2024-2025", "2023-2024", "2022-2023"]
-const SEMESTERS = ["الفصل الأول", "الفصل الثاني", "الفصل الصيفي"]
 
-const SEMESTER_MAP: Record<string, string> = {
-  "الفصل الأول": "first",
-  "الفصل الثاني": "second",
-  "الفصل الصيفي": "second",
-}
-
-const SEMESTER_DISPLAY: Record<string, string> = {
-  first: "الفصل الأول",
-  second: "الفصل الثاني",
-}
-
-const EXAM_TYPES = ["كويز", "نصف الفصل", "أسايمنت (واجب)", "مشاريع", "امتحان نهائي", "اختبار قصير"]
-
-const EXAM_TYPE_MAP: Record<string, string> = {
-  كويز: "quiz",
-  "اختبار قصير": "quiz",
-  "نصف الفصل": "exam",
-  "امتحان نهائي": "exam",
-  "أسايمنت (واجب)": "homework",
-  مشاريع: "project",
-}
-
-const EXAM_TYPE_DISPLAY: Record<string, string> = {
-  quiz: "كويز",
-  exam: "امتحان نهائي",
-  homework: "أسايمنت (واجب)",
-  project: "مشاريع",
-}
+const EXAM_TYPES = [
+  { value: "quiz", label: { ar: "كويز", en: "Quiz" } },
+  { value: "exam", label: { ar: "امتحان", en: "Exam" } },
+  { value: "homework", label: { ar: "واجب", en: "Homework" } },
+  { value: "project", label: { ar: "مشروع", en: "Project" } },
+]
 
 const SUBJECTS = [
   "اللغة العربية",
@@ -112,7 +88,7 @@ const SUBJECTS = [
 
 type ViewMode = "classes" | "students" | "all-grades" | "all-grades-class" | "all-grades-student"
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -120,17 +96,20 @@ const containerVariants = {
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } },
 }
 
 export default function GradesPage() {
-  const [grades, setGrades] = useState<Grade[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
-  const [loading, setLoading] = useState(true)
+  const { t, language } = useLanguage()
+  const gp = t.gradesPage
+  const queryClient = useQueryClient()
+  const { data: grades = [], isLoading: gradesLoading } = useAdminGrades()
+  const { data: students = [], isLoading: studentsLoading } = useAdminStudents()
+  const { data: classes = [] } = useAdminClasses()
+  const { data: teachers = [] } = useAdminTeachers()
+  const loading = gradesLoading || studentsLoading
 
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>("classes")
@@ -139,7 +118,7 @@ export default function GradesPage() {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedSemester, setSelectedSemester] = useState<string>("الفصل الأول")
+  const [selectedSemester, setSelectedSemester] = useState<string>("first")
   const [selectedYear, setSelectedYear] = useState<string>("2024-2025")
   const [filterTeacherId, setFilterTeacherId] = useState<string>("all")
 
@@ -158,29 +137,10 @@ export default function GradesPage() {
   const [newMaxGrade, setNewMaxGrade] = useState("100")
   const [newNotes, setNewNotes] = useState("")
 
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [gradesData, studentsData, classesData, teachersData] = await Promise.all([
-        fetchGrades(),
-        fetchStudents(),
-        fetchClasses(),
-        fetchTeachers(),
-      ])
-      setGrades(gradesData)
-      setStudents(studentsData)
-      setClasses(classesData)
-      setTeachers(teachersData)
-    } catch (error) {
-      toast.error("حدث خطأ أثناء تحميل البيانات")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
+  const reload = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "grades"] })
+    queryClient.invalidateQueries({ queryKey: ["admin", "students"] })
+  }, [queryClient])
 
   // Get students for selected class
   const studentsInClass = selectedClass
@@ -189,74 +149,70 @@ export default function GradesPage() {
 
   // Get grades for student
   const getStudentGrades = (studentId: string) => {
-    const semesterDb = SEMESTER_MAP[selectedSemester] || "first"
     return grades.filter(
       (g) =>
         g.studentId === studentId &&
         g.academicYear === selectedYear &&
-        g.semester === semesterDb
+        g.semester === selectedSemester
     )
   }
 
   async function handleAddGrade() {
     if (!selectedStudent) {
-      toast.error("يرجى اختيار الطالب")
+      toast.error(t.forms.required)
       return
     }
     if (classFilterTeacher === "all") {
-      toast.error("يرجى اختيار المعلم من الفلاتر أولاً")
+      toast.error(t.forms.selectTeacher)
       return
     }
     if (classFilterSubject === "all") {
-      toast.error("يرجى اختيار المادة من الفلاتر أولاً")
+      toast.error(t.forms.selectSubject)
       return
     }
     if (classFilterExamType === "all") {
-      toast.error("يرجى اختيار نوع التقييم من الفلاتر أولاً")
+      toast.error(gp.examType)
       return
     }
     const gradeValue = parseFloat(newGrade)
     const maxGradeValue = parseFloat(newMaxGrade)
     if (isNaN(gradeValue) || gradeValue < 0 || gradeValue > maxGradeValue) {
-      toast.error(`يرجى إدخال علامة صحيحة بين 0 و ${maxGradeValue}`)
+      toast.error(`${gp.grade}: 0 - ${maxGradeValue}`)
       return
     }
 
     try {
-      const examTypeDb = EXAM_TYPE_MAP[classFilterExamType] || "exam"
-      const semesterDb = SEMESTER_MAP[selectedSemester] || "first"
-
       const created = await createGrade(
         selectedStudent.id,
         classFilterSubject,
         gradeValue,
         maxGradeValue,
-        semesterDb,
+        selectedSemester,
         selectedYear,
-        examTypeDb,
+        classFilterExamType,
         classFilterTeacher,
         newNotes.trim()
       )
 
       if (!created) {
-        toast.error("فشل إضافة العلامة - قد تكون هناك مشكلة في الاتصال بقاعدة البيانات")
+        toast.error(t.dashboard.loadingError)
         return
       }
 
       resetForm()
       setAddGradeOpen(false)
-      void reload()
-      toast.success(`تمت إضافة العلامة بنجاح للطالب ${selectedStudent.name}`)
+      reload()
+      toast.success(gp.addSuccess)
     } catch (error) {
       console.error("Error in handleAddGrade:", error)
-      toast.error("حدث خطأ غير متوقع أثناء إضافة العلامة")
+      toast.error(t.dashboard.loadingError)
     }
   }
 
   async function handleDeleteGrade(id: string) {
     await deleteGrade(id)
-    void reload()
-    toast.success("تم حذف العلامة بنجاح")
+    reload()
+    toast.success(gp.noGrades)
   }
 
   function resetForm() {
@@ -273,21 +229,26 @@ export default function GradesPage() {
 
   function getClassName(classId: string): string {
     const cls = classes.find((c) => c.id === classId)
-    return cls?.name || "غير معروف"
+    return cls?.name || t.table.noData
   }
 
   function getTeacherName(teacherId: string | null): string {
     if (!teacherId) return "-"
-    const teacher = teachers.find((t) => t.id === teacherId)
-    return teacher?.name || "غير معروف"
+    const tc = teachers.find((tc) => tc.id === teacherId)
+    return tc?.name || t.table.noData
+  }
+
+  function getExamTypeLabel(examType: string): string {
+    const et = EXAM_TYPES.find((e) => e.value === examType)
+    return et ? et.label[language as "ar" | "en"] : examType
   }
 
   function getGradeColor(percentage: number): string {
-    if (percentage >= 90) return "bg-emerald-50 text-emerald-700 border-emerald-200"
-    if (percentage >= 80) return "bg-indigo-50 text-indigo-750 border-indigo-200"
-    if (percentage >= 70) return "bg-amber-50 text-amber-700 border-amber-200"
-    if (percentage >= 60) return "bg-orange-50 text-orange-700 border-orange-200"
-    return "bg-rose-50 text-rose-700 border-rose-250"
+    if (percentage >= 90) return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+    if (percentage >= 80) return "bg-primary/10 text-primary border-primary/20"
+    if (percentage >= 70) return "bg-amber-500/10 text-amber-600 border-amber-500/20"
+    if (percentage >= 60) return "bg-orange-500/10 text-orange-600 border-orange-500/20"
+    return "bg-rose-500/10 text-rose-600 border-rose-500/20"
   }
 
   const getInitials = (name: string) => {
@@ -296,10 +257,40 @@ export default function GradesPage() {
 
   if (loading) {
     return (
-      <div className="flex h-72 items-center justify-center">
-        <div className="relative h-12 w-12">
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin" />
+      <div className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`} dir={language === "ar" ? "rtl" : "ltr"}>
+        <div className="bg-card rounded-2xl border border-border/50 p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl skeleton" />
+            <div className="space-y-2">
+              <div className="h-4 w-36 skeleton" />
+              <div className="h-3 w-52 skeleton" />
+            </div>
+          </div>
+          <div className="h-9 w-32 skeleton rounded-xl" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border/50 p-4">
+              <div className="h-11 w-11 rounded-xl skeleton mb-3" />
+              <div className="h-5 w-12 skeleton mb-2" />
+              <div className="h-3 w-28 skeleton" />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border/50 p-5 space-y-3">
+              <div className="flex justify-between">
+                <div className="h-10 w-10 rounded-xl skeleton" />
+                <div className="h-6 w-16 skeleton rounded-full" />
+              </div>
+              <div className="h-5 w-28 skeleton" />
+              <div className="h-3 w-40 skeleton" />
+              <div className="border-t border-border/30 pt-3">
+                <div className="h-3.5 w-32 skeleton" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -312,80 +303,80 @@ export default function GradesPage() {
         initial="hidden"
         animate="show"
         variants={containerVariants}
-        className="space-y-6 text-right"
-        dir="rtl"
+        className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
+        dir={language === "ar" ? "rtl" : "ltr"}
       >
         {/* Header Section */}
         <motion.div
           variants={itemVariants}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-505">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <School className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">رصد وإدخال العلامات</h1>
-              <p className="text-xs sm:text-sm text-slate-400">اختر الصف الدراسي للبدء برصد الدرجات والتقييمات للطلاب</p>
+              <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{gp.title}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{gp.noGradesDesc}</p>
             </div>
           </div>
 
           <Button
             variant="outline"
             onClick={() => setViewMode("all-grades")}
-            className="h-10 border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold flex items-center gap-2 w-full sm:w-auto"
+            className="h-10 border-border text-foreground hover:bg-muted rounded-xl font-bold flex items-center gap-2 w-full sm:w-auto"
           >
-            <ClipboardList className="h-4.5 w-4.5" />
-            <span>سجل الدرجات العام</span>
+            <ClipboardList className="h-4 w-4" />
+            <span>{gp.searchPlaceholder}</span>
           </Button>
         </motion.div>
 
         {/* Stats Row */}
         <motion.div variants={itemVariants} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
+          <Card className="border border-border/50 bg-card shadow-sm rounded-2xl">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-11 w-11 bg-slate-50 text-slate-650 rounded-xl flex items-center justify-center">
-                <BarChart3 className="h-5.5 w-5.5" />
+              <div className="h-11 w-11 bg-muted text-muted-foreground rounded-xl flex items-center justify-center">
+                <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xl font-black text-slate-850">{grades.length}</p>
-                <p className="text-[11px] font-semibold text-slate-400">إجمالي الدرجات المرصودة</p>
+                <p className="text-xl font-black text-foreground">{grades.length}</p>
+                <p className="text-[11px] font-semibold text-muted-foreground">{gp.title}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
+          <Card className="border border-border/50 bg-card shadow-sm rounded-2xl">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-11 w-11 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                <School className="h-5.5 w-5.5" />
+              <div className="h-11 w-11 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                <School className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xl font-black text-slate-850">{classes.length}</p>
-                <p className="text-[11px] font-semibold text-slate-400">الصفوف الدراسية</p>
+                <p className="text-xl font-black text-foreground">{classes.length}</p>
+                <p className="text-[11px] font-semibold text-muted-foreground">{t.dashboard.classesStat}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
+          <Card className="border border-border/50 bg-card shadow-sm rounded-2xl">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-11 w-11 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                <Users className="h-5.5 w-5.5" />
+              <div className="h-11 w-11 bg-purple-500/10 text-purple-600 rounded-xl flex items-center justify-center">
+                <Users className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xl font-black text-slate-850">{students.length}</p>
-                <p className="text-[11px] font-semibold text-slate-400">الطلاب المسجلون</p>
+                <p className="text-xl font-black text-foreground">{students.length}</p>
+                <p className="text-[11px] font-semibold text-muted-foreground">{t.dashboard.studentsStat}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
+          <Card className="border border-border/50 bg-card shadow-sm rounded-2xl">
             <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-11 w-11 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-                <Award className="h-5.5 w-5.5" />
+              <div className="h-11 w-11 bg-amber-500/10 text-amber-600 rounded-xl flex items-center justify-center">
+                <Award className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xl font-black text-slate-850">{teachers.length}</p>
-                <p className="text-[11px] font-semibold text-slate-400">المعلمون</p>
+                <p className="text-xl font-black text-foreground">{teachers.length}</p>
+                <p className="text-[11px] font-semibold text-muted-foreground">{t.dashboard.teachersStat}</p>
               </div>
             </CardContent>
           </Card>
@@ -393,7 +384,7 @@ export default function GradesPage() {
 
         {/* Classes Grid */}
         <motion.div variants={itemVariants} className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-700">الصفوف الدراسية المتوفرة</h2>
+          <h2 className="text-sm font-bold text-muted-foreground">{t.dashboard.classesStat}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {classes.map((cls) => {
               const classStudents = students.filter((s) => s.classId === cls.id)
@@ -403,29 +394,29 @@ export default function GradesPage() {
               return (
                 <Card
                   key={cls.id}
-                  className="bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group rounded-2xl relative overflow-hidden"
+                  className="bg-card border border-border/50 shadow-sm hover:shadow-md transition-all cursor-pointer group rounded-2xl relative overflow-hidden"
                   onClick={() => {
                     setSelectedClass(cls)
                     setViewMode("students")
                   }}
                 >
-                  <div className="absolute top-0 right-0 w-2 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute top-0 right-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-r-2xl" />
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="h-10 w-10 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-650 transition-colors">
+                      <div className="h-10 w-10 rounded-xl bg-muted text-muted-foreground flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                         <School className="h-5 w-5" />
                       </div>
-                      <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs rounded-lg">
-                        {classStudents.length} طلاب
+                      <Badge className="bg-muted text-muted-foreground hover:bg-muted text-xs rounded-lg">
+                        {classStudents.length} {t.stats.totalStudents}
                       </Badge>
                     </div>
-                    <h3 className="font-extrabold text-slate-800 text-base mb-1">{cls.name}</h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      تم رصد علامات لـ {gradedStudents} من أصل {classStudents.length} طلاب
+                    <h3 className="font-extrabold text-foreground text-base mb-1">{cls.name}</h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {gradedStudents} / {classStudents.length}
                     </p>
 
-                    <div className="flex items-center gap-1 text-xs font-bold text-indigo-650 pt-2 border-t border-slate-100/60">
-                      <span>عرض قائمة الطلاب والرصد</span>
+                    <div className="flex items-center gap-1 text-xs font-bold text-primary pt-2 border-t border-border/30">
+                      <span>{t.actions.view}</span>
                       <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
                     </div>
                   </CardContent>
@@ -445,13 +436,13 @@ export default function GradesPage() {
         initial="hidden"
         animate="show"
         variants={containerVariants}
-        className="space-y-6 text-right"
-        dir="rtl"
+        className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
+        dir={language === "ar" ? "rtl" : "ltr"}
       >
         {/* Header Section */}
         <motion.div
           variants={itemVariants}
-          className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm"
+          className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm"
         >
           <div className="flex items-center gap-3">
             <Button
@@ -461,35 +452,35 @@ export default function GradesPage() {
                 setViewMode("classes")
                 setSelectedClass(null)
               }}
-              className="text-slate-500 hover:bg-slate-100 h-9 w-9 p-0 rounded-lg"
+              className="text-muted-foreground hover:bg-muted h-9 w-9 p-0 rounded-lg"
             >
               <ChevronLeft className="h-5 w-5 rotate-180" />
             </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-650">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">{selectedClass.name}</h1>
-              <p className="text-xs sm:text-sm text-slate-400">رصد العلامات للفصل والدراسة الحالية</p>
+              <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{selectedClass.name}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{gp.semester}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
             <div className="relative flex-1 sm:flex-none">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="بحث عن طالب بالاسم..."
+                placeholder={gp.searchPlaceholder}
                 value={classStudentSearch}
                 onChange={(e) => setClassStudentSearch(e.target.value)}
-                className="w-full sm:w-44 pr-9 border-slate-200 rounded-xl h-9 text-xs"
+                className="w-full sm:w-44 pr-9 border-border rounded-xl h-9 text-xs"
               />
             </div>
             <Select value={classFilterTeacher} onValueChange={setClassFilterTeacher}>
-              <SelectTrigger className="w-36 border-slate-200 rounded-xl h-9 text-xs">
-                <SelectValue placeholder="اختر المعلم" />
+              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
+                <SelectValue placeholder={t.forms.selectTeacher} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع المعلمين</SelectItem>
+                <SelectItem value="all">{t.forms.selectTeacher}</SelectItem>
                 {teachers.map((teacher) => (
                   <SelectItem key={teacher.id} value={teacher.id}>
                     {teacher.name}
@@ -498,11 +489,11 @@ export default function GradesPage() {
               </SelectContent>
             </Select>
             <Select value={classFilterSubject} onValueChange={setClassFilterSubject}>
-              <SelectTrigger className="w-36 border-slate-200 rounded-xl h-9 text-xs">
-                <SelectValue placeholder="اختر المادة" />
+              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
+                <SelectValue placeholder={t.forms.selectSubject} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع المواد</SelectItem>
+                <SelectItem value="all">{t.forms.selectSubject}</SelectItem>
                 {SUBJECTS.map((subject) => (
                   <SelectItem key={subject} value={subject}>
                     {subject}
@@ -511,32 +502,29 @@ export default function GradesPage() {
               </SelectContent>
             </Select>
             <Select value={classFilterExamType} onValueChange={setClassFilterExamType}>
-              <SelectTrigger className="w-36 border-slate-200 rounded-xl h-9 text-xs">
-                <SelectValue placeholder="نوع التقييم" />
+              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
+                <SelectValue placeholder={gp.examType} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع التقييمات</SelectItem>
-                {EXAM_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
+                <SelectItem value="all">{t.forms.selectSubject}</SelectItem>
+                {EXAM_TYPES.map((et) => (
+                  <SelectItem key={et.value} value={et.value}>
+                    {et.label[language as "ar" | "en"]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-              <SelectTrigger className="w-36 border-slate-200 rounded-xl h-9 text-xs">
+              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SEMESTERS.map((sem) => (
-                  <SelectItem key={sem} value={sem}>
-                    {sem}
-                  </SelectItem>
-                ))}
+                <SelectItem value="first">{t.teachersPage.firstSemester}</SelectItem>
+                <SelectItem value="second">{t.teachersPage.secondSemester}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-32 border-slate-200 rounded-xl h-9 text-xs">
+              <SelectTrigger className="w-32 border-border rounded-xl h-9 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -552,29 +540,29 @@ export default function GradesPage() {
 
         {/* Filter Alert and Tips */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-slate-50 border border-slate-100 shadow-sm rounded-xl">
+          <Card className="bg-muted/30 border border-border/50 shadow-sm rounded-xl">
             <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-2.5">
-                <Filter className="h-5 w-5 text-indigo-500 mt-0.5" />
+                <Filter className="h-5 w-5 text-primary mt-0.5" />
                 <div>
-                  <span className="text-xs font-bold text-slate-700 block">فلاتر الرصد النشطة:</span>
+                  <span className="text-xs font-bold text-foreground block">{t.actions.filter}</span>
                   <div className="flex flex-wrap gap-2 mt-1.5">
-                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterTeacher === "all" ? "border-rose-200 text-rose-600 bg-rose-50/20" : "border-indigo-200 text-indigo-700 bg-indigo-50/10"}`}>
-                      المعلم: {classFilterTeacher === "all" ? "غير محدد" : getTeacherName(classFilterTeacher)}
+                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterTeacher === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
+                      {t.table.actions}: {classFilterTeacher === "all" ? "-" : getTeacherName(classFilterTeacher)}
                     </Badge>
-                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterSubject === "all" ? "border-rose-200 text-rose-600 bg-rose-50/20" : "border-indigo-200 text-indigo-700 bg-indigo-50/10"}`}>
-                      المادة: {classFilterSubject === "all" ? "غير محدد" : classFilterSubject}
+                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterSubject === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
+                      {gp.subject}: {classFilterSubject === "all" ? "-" : classFilterSubject}
                     </Badge>
-                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterExamType === "all" ? "border-rose-200 text-rose-600 bg-rose-50/20" : "border-indigo-200 text-indigo-700 bg-indigo-50/10"}`}>
-                      التقييم: {classFilterExamType === "all" ? "غير محدد" : classFilterExamType}
+                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterExamType === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
+                      {gp.examType}: {classFilterExamType === "all" ? "-" : getExamTypeLabel(classFilterExamType)}
                     </Badge>
                   </div>
                 </div>
               </div>
               { (classFilterTeacher === "all" || classFilterSubject === "all" || classFilterExamType === "all") && (
-                <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
                   <AlertCircle className="h-4 w-4" />
-                  <span>يرجى اختيار (المعلم والمادة ونوع التقييم) لإضافة درجات جديدة للطلاب.</span>
+                  <span>{t.forms.selectTeacher} + {t.forms.selectSubject}</span>
                 </div>
               )}
             </CardContent>
@@ -584,9 +572,9 @@ export default function GradesPage() {
         {/* Students List Container */}
         <motion.div variants={itemVariants} className="space-y-4">
           {studentsInClass.length === 0 ? (
-            <Card className="bg-white border border-slate-100 p-12 text-center rounded-2xl shadow-sm">
-              <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-700">لا يوجد طلاب مسجلون في هذا الصف</p>
+            <Card className="bg-card border border-border/50 p-12 text-center rounded-2xl shadow-sm">
+              <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-bold text-foreground">{gp.noGrades}</p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -604,8 +592,7 @@ export default function GradesPage() {
                     studentGrades = studentGrades.filter((g) => g.subject === classFilterSubject)
                   }
                   if (classFilterExamType !== "all") {
-                    const examTypeDb = EXAM_TYPE_MAP[classFilterExamType]
-                    studentGrades = studentGrades.filter((g) => g.examType === examTypeDb)
+                    studentGrades = studentGrades.filter((g) => g.examType === classFilterExamType)
                   }
                   const average =
                     studentGrades.length > 0
@@ -618,31 +605,31 @@ export default function GradesPage() {
                   return (
                     <Card
                       key={student.id}
-                      className="bg-white border border-slate-100 shadow-sm overflow-hidden rounded-2xl hover:border-slate-200 transition-colors"
+                      className="bg-card border border-border/50 shadow-sm overflow-hidden rounded-2xl hover:border-border transition-colors"
                     >
                       {/* Sub Header per student */}
-                      <div className="bg-slate-50/50 border-b border-slate-100 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="bg-muted/30 border-b border-border/50 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9 rounded-xl">
-                            <AvatarFallback className="bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl">
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-xl">
                               {getInitials(student.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <Link
                               href={`/dashboard/student/${student.id}`}
-                              className="font-bold text-slate-800 hover:text-indigo-650 transition-colors text-sm"
+                              className="font-bold text-foreground hover:text-primary transition-colors text-sm"
                             >
                               {student.name}
                             </Link>
-                            <p className="text-[10px] text-slate-400 mt-0.5">العمر: {student.age} سنة</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{t.forms.age}: {student.age}</p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-auto">
                           {average !== null && (
                             <Badge className={`rounded-lg py-1 px-2.5 font-bold border ${getGradeColor(average)}`}>
-                              المعدل المرشح: {average}%
+                              {gp.percentage}: {average}%
                             </Badge>
                           )}
                           <Button
@@ -653,10 +640,10 @@ export default function GradesPage() {
                               classFilterSubject === "all" ||
                               classFilterExamType === "all"
                             }
-                            className="bg-indigo-650 hover:bg-indigo-750 text-white rounded-xl h-8 text-xs font-bold border-0 disabled:bg-slate-150 disabled:text-slate-400 shadow-sm"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-8 text-xs font-bold border-0 disabled:opacity-40 shadow-sm"
                           >
                             <Plus className="h-3.5 w-3.5 ml-1" />
-                            <span>رصد علامة</span>
+                            <span>{gp.addGrade}</span>
                           </Button>
                         </div>
                       </div>
@@ -664,34 +651,34 @@ export default function GradesPage() {
                       {/* Grades Table */}
                       {studentGrades.length > 0 ? (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm text-right">
+                          <table className={`w-full text-sm ${language === "ar" ? "text-right" : "text-left"}`}>
                             <thead>
-                              <tr className="bg-slate-50/20 border-b border-slate-100">
-                                <th className="px-5 py-2.5 font-bold text-slate-400 text-xs">المادة</th>
-                                <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">التقييم</th>
-                                <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">المعلم</th>
-                                <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">العلامة</th>
-                                <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">النسبة</th>
+                              <tr className="bg-muted/20 border-b border-border/50">
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs">{gp.subject}</th>
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.examType}</th>
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{t.table.actions}</th>
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.grade}</th>
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.percentage}</th>
                                 <th className="px-5 py-2.5 w-12"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100/60">
+                            <tbody className="divide-y divide-border/40">
                               {studentGrades.map((grade) => {
                                 const pct = Math.round((grade.grade / grade.maxGrade) * 100)
                                 return (
-                                  <tr key={grade.id} className="hover:bg-slate-50/20 transition-colors">
+                                  <tr key={grade.id} className="hover:bg-muted/20 transition-colors">
                                     <td className="px-5 py-3">
-                                      <span className="font-bold text-slate-700">{grade.subject}</span>
+                                      <span className="font-bold text-foreground">{grade.subject}</span>
                                     </td>
                                     <td className="px-5 py-3 text-center">
-                                      <Badge variant="outline" className="text-[10px] font-bold rounded bg-slate-50 border-slate-205">
-                                        {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
+                                      <Badge variant="outline" className="text-[10px] font-bold rounded bg-muted border-border">
+                                        {getExamTypeLabel(grade.examType)}
                                       </Badge>
                                     </td>
-                                    <td className="px-5 py-3 text-center text-xs text-slate-505">
+                                    <td className="px-5 py-3 text-center text-xs text-muted-foreground">
                                       {getTeacherName(grade.teacherId)}
                                     </td>
-                                    <td className="px-5 py-3 text-center font-bold text-slate-700">
+                                    <td className="px-5 py-3 text-center font-bold text-foreground">
                                       {grade.grade} / {grade.maxGrade}
                                     </td>
                                     <td className="px-5 py-3 text-center">
@@ -699,12 +686,12 @@ export default function GradesPage() {
                                         {pct}%
                                       </Badge>
                                     </td>
-                                    <td className="px-5 py-3 text-left">
+                                    <td className="px-5 py-3">
                                       <Button
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleDeleteGrade(grade.id)}
-                                        className="text-rose-450 hover:text-rose-600 hover:bg-rose-50 h-7 w-7 p-0 rounded-lg"
+                                        className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 h-7 w-7 p-0 rounded-lg"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
@@ -716,8 +703,8 @@ export default function GradesPage() {
                           </table>
                         </div>
                       ) : (
-                        <div className="p-6 text-center text-slate-400">
-                          <p className="text-xs font-semibold">لا توجد درجات مرصودة لهذا الطالب بالخيارات المحددة.</p>
+                        <div className="p-6 text-center text-muted-foreground">
+                          <p className="text-xs font-semibold">{gp.noGrades}</p>
                         </div>
                       )}
                     </Card>
@@ -728,9 +715,9 @@ export default function GradesPage() {
                 classStudentSearch === "" ||
                 student.name.toLowerCase().includes(classStudentSearch.toLowerCase())
               ).length === 0 && (
-                <div className="text-center py-10 bg-slate-50/20 border border-slate-100 rounded-xl">
-                  <Search className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-550 font-bold">لا يوجد نتائج بحث مطابقة</p>
+                <div className="text-center py-10 bg-muted/20 border border-border/50 rounded-xl">
+                  <Search className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-bold">{t.table.noData}</p>
                 </div>
               )}
             </div>
@@ -739,37 +726,37 @@ export default function GradesPage() {
 
         {/* Add Grade Modal */}
         <Dialog open={addGradeOpen} onOpenChange={setAddGradeOpen}>
-          <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-md">
+          <DialogContent className={`${language === "ar" ? "text-right" : "text-left"} bg-card border-border/50 rounded-2xl max-w-md`} dir={language === "ar" ? "rtl" : "ltr"}>
             <DialogHeader>
-              <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                رصد علامة جديدة للطفل
+              <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                {gp.addGrade}
               </DialogTitle>
             </DialogHeader>
 
             <div className="flex flex-col gap-4 pt-2">
-              <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-3.5 space-y-2">
+              <div className="bg-muted/50 border border-border/50 rounded-xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">الطالب:</span>
-                  <span className="font-bold text-slate-800">{selectedStudent?.name}</span>
+                  <span className="text-muted-foreground">{gp.studentName}:</span>
+                  <span className="font-bold text-foreground">{selectedStudent?.name}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">المعلم:</span>
-                  <span className="font-bold text-slate-800">{getTeacherName(classFilterTeacher)}</span>
+                  <span className="text-muted-foreground">{t.schedulePage.teacher}:</span>
+                  <span className="font-bold text-foreground">{getTeacherName(classFilterTeacher)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">المادة:</span>
-                  <span className="font-bold text-slate-850">{classFilterSubject}</span>
+                  <span className="text-muted-foreground">{gp.subject}:</span>
+                  <span className="font-bold text-foreground">{classFilterSubject}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">نوع التقييم:</span>
-                  <span className="font-bold text-slate-850">{classFilterExamType}</span>
+                  <span className="text-muted-foreground">{gp.examType}:</span>
+                  <span className="font-bold text-foreground">{getExamTypeLabel(classFilterExamType)}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-slate-705 font-bold text-xs">العلامة *</Label>
+                  <Label className="text-foreground font-bold text-xs">{gp.grade} *</Label>
                   <Input
                     type="number"
                     placeholder="0"
@@ -777,22 +764,22 @@ export default function GradesPage() {
                     onChange={(e) => setNewGrade(e.target.value)}
                     min={0}
                     max={parseInt(newMaxGrade)}
-                    className="bg-white border-slate-200 focus:border-indigo-500 rounded-xl h-10 text-slate-800"
+                    className="bg-background border-border rounded-xl h-10 text-foreground"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-705 font-bold text-xs">من أصل</Label>
+                  <Label className="text-foreground font-bold text-xs">{gp.maxGrade}</Label>
                   <Input
                     type="number"
                     value={newMaxGrade}
                     onChange={(e) => setNewMaxGrade(e.target.value)}
                     min={1}
-                    className="bg-white border-slate-200 focus:border-indigo-500 rounded-xl h-10 text-slate-800"
+                    className="bg-background border-border rounded-xl h-10 text-foreground"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-705 font-bold text-xs">النسبة المئوية</Label>
-                  <div className="h-10 flex items-center justify-center bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700">
+                  <Label className="text-foreground font-bold text-xs">{gp.percentage}</Label>
+                  <div className="h-10 flex items-center justify-center bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary">
                     {newGrade && newMaxGrade
                       ? Math.round((parseFloat(newGrade) / parseFloat(newMaxGrade)) * 100) + "%"
                       : "—"}
@@ -801,27 +788,27 @@ export default function GradesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-slate-705 font-bold text-xs">ملاحظات التقييم</Label>
+                <Label className="text-foreground font-bold text-xs">{t.forms.notes}</Label>
                 <Textarea
-                  placeholder="مثال: أداء ممتاز، يحتاج للتركيز أكثر..."
+                  placeholder={t.forms.notes}
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
                   rows={2}
-                  className="bg-white border-slate-200 focus:border-indigo-500 rounded-xl resize-none text-slate-800 text-sm"
+                  className="bg-background border-border rounded-xl resize-none text-foreground text-sm"
                 />
               </div>
 
               <div className="flex gap-2 justify-end pt-2">
                 <DialogClose asChild>
-                  <Button variant="outline" className="border-slate-200 rounded-xl h-10">
-                    إلغاء
+                  <Button variant="outline" className="border-border rounded-xl h-10">
+                    {t.actions.cancel}
                   </Button>
                 </DialogClose>
                 <Button
                   onClick={handleAddGrade}
-                  className="bg-gradient-to-r from-indigo-550 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl h-10 px-5 border-0 font-bold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-10 px-5 border-0 font-bold"
                 >
-                  حفظ العلامة
+                  {t.actions.save}
                 </Button>
               </div>
             </div>
@@ -870,13 +857,13 @@ export default function GradesPage() {
         initial="hidden"
         animate="show"
         variants={containerVariants}
-        className="space-y-6 text-right"
-        dir="rtl"
+        className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
+        dir={language === "ar" ? "rtl" : "ltr"}
       >
         {/* Header Section */}
         <motion.div
           variants={itemVariants}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm"
         >
           <div className="flex items-center gap-3">
             <Button
@@ -886,43 +873,43 @@ export default function GradesPage() {
                 setViewMode("classes")
                 setSearchTerm("")
               }}
-              className="text-slate-500 hover:bg-slate-100 h-9 w-9 p-0 rounded-lg"
+              className="text-muted-foreground hover:bg-muted h-9 w-9 p-0 rounded-lg"
             >
               <ChevronLeft className="h-5 w-5 rotate-180" />
             </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-650">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ClipboardList className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">السجل العام للعلامات</h1>
-              <p className="text-xs sm:text-sm text-slate-400">مراجعة والبحث في درجات الطلاب بكل الفئات التعليمية</p>
+              <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{gp.title}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{gp.noGradesDesc}</p>
             </div>
           </div>
         </motion.div>
 
         {/* Search controls */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-white border border-slate-100 shadow-sm rounded-2xl">
+          <Card className="bg-card border border-border/50 shadow-sm rounded-2xl">
             <CardContent className="p-5">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="ابحث باسم الطالب هنا للفلترة والتصفية..."
+                      placeholder={gp.searchPlaceholder}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pr-9 border-slate-200 focus:border-indigo-505 rounded-xl h-10 text-sm bg-slate-50/50"
+                      className="pr-9 border-border rounded-xl h-10 text-sm bg-muted/30"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Select value={filterTeacherId} onValueChange={setFilterTeacherId}>
-                    <SelectTrigger className="w-44 border-slate-200 rounded-xl h-10 text-xs">
-                      <SelectValue placeholder="المعلم" />
+                    <SelectTrigger className="w-44 border-border rounded-xl h-10 text-xs">
+                      <SelectValue placeholder={t.forms.selectTeacher} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">جميع المعلمين</SelectItem>
+                      <SelectItem value="all">{t.forms.selectTeacher}</SelectItem>
                       {teachers.map((teacher) => (
                         <SelectItem key={teacher.id} value={teacher.id}>
                           {teacher.name}
@@ -931,7 +918,7 @@ export default function GradesPage() {
                     </SelectContent>
                   </Select>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-32 border-slate-200 rounded-xl h-10 text-xs">
+                    <SelectTrigger className="w-32 border-border rounded-xl h-10 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -953,28 +940,28 @@ export default function GradesPage() {
           {searchTerm !== "" ? (
             studentsWithGrades.length > 0 ? (
               <div className="space-y-4">
-                <p className="text-xs font-bold text-slate-400">نتائج البحث المطابقة: {studentsWithGrades.length} طالب</p>
+                <p className="text-xs font-bold text-muted-foreground">{studentsWithGrades.length} {t.stats.totalStudents}</p>
                 {studentsWithGrades.map(({ student, grades: studentGrades, average }) => (
                   <Card
                     key={student.id}
-                    className="bg-white border border-slate-100 shadow-sm overflow-hidden rounded-2xl"
+                    className="bg-card border border-border/50 shadow-sm overflow-hidden rounded-2xl"
                   >
-                    <div className="bg-slate-50/50 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
+                    <div className="bg-muted/30 border-b border-border/50 px-5 py-3.5 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9 rounded-xl">
-                          <AvatarFallback className="bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold rounded-xl">
                             {getInitials(student.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <Link
                             href={`/dashboard/student/${student.id}`}
-                            className="font-bold text-slate-800 hover:text-indigo-650 transition-colors text-sm"
+                            className="font-bold text-foreground hover:text-primary transition-colors text-sm"
                           >
                             {student.name}
                           </Link>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {getClassName(student.classId)} | العمر: {student.age} سنة
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {getClassName(student.classId)} | {t.forms.age}: {student.age}
                           </p>
                         </div>
                       </div>
@@ -982,7 +969,7 @@ export default function GradesPage() {
                       <div className="flex items-center gap-3">
                         {average !== null && (
                           <Badge className={`rounded-lg py-1 px-2.5 font-bold border ${getGradeColor(average)}`}>
-                            المعدل: {average}%
+                            {gp.percentage}: {average}%
                           </Badge>
                         )}
                         <Button
@@ -991,44 +978,44 @@ export default function GradesPage() {
                             setAllGradesSelectedStudent(student)
                             setViewMode("all-grades-student")
                           }}
-                          className="bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-650 rounded-xl h-8 px-4 text-xs font-bold border-0 shadow-sm"
+                          className="bg-muted hover:bg-primary/10 text-foreground hover:text-primary rounded-xl h-8 px-4 text-xs font-bold border-0 shadow-sm"
                         >
                           <Eye className="h-3.5 w-3.5 ml-1" />
-                          <span>عرض السجل الكامل</span>
+                          <span>{t.actions.view}</span>
                         </Button>
                       </div>
                     </div>
 
                     {studentGrades.length > 0 ? (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-right">
+                        <table className={`w-full text-sm ${language === "ar" ? "text-right" : "text-left"}`}>
                           <thead>
-                            <tr className="bg-slate-50/20 border-b border-slate-100">
-                              <th className="px-5 py-2.5 font-bold text-slate-400 text-xs">المادة</th>
-                              <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">التقييم</th>
-                              <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">المعلم</th>
-                              <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">العلامة</th>
-                              <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">النسبة</th>
+                            <tr className="bg-muted/20 border-b border-border/50">
+                              <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs">{gp.subject}</th>
+                              <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.examType}</th>
+                              <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{t.schedulePage.teacher}</th>
+                              <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.grade}</th>
+                              <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.percentage}</th>
                               <th className="px-5 py-2.5 w-12"></th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100/60">
+                          <tbody className="divide-y divide-border/40">
                             {studentGrades.map((grade) => {
                               const pct = Math.round((grade.grade / grade.maxGrade) * 100)
                               return (
-                                <tr key={grade.id} className="hover:bg-slate-50/20 transition-colors">
+                                <tr key={grade.id} className="hover:bg-muted/20 transition-colors">
                                   <td className="px-5 py-3">
-                                    <span className="font-bold text-slate-700">{grade.subject}</span>
+                                    <span className="font-bold text-foreground">{grade.subject}</span>
                                   </td>
                                   <td className="px-5 py-3 text-center">
-                                    <Badge variant="outline" className="text-[10px] font-bold rounded bg-slate-50 border-slate-205">
-                                      {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
+                                    <Badge variant="outline" className="text-[10px] font-bold rounded bg-muted border-border">
+                                      {getExamTypeLabel(grade.examType)}
                                     </Badge>
                                   </td>
-                                  <td className="px-5 py-3 text-center text-xs text-slate-505">
+                                  <td className="px-5 py-3 text-center text-xs text-muted-foreground">
                                     {getTeacherName(grade.teacherId)}
                                   </td>
-                                  <td className="px-5 py-3 text-center font-bold text-slate-700">
+                                  <td className="px-5 py-3 text-center font-bold text-foreground">
                                     {grade.grade} / {grade.maxGrade}
                                   </td>
                                   <td className="px-5 py-3 text-center">
@@ -1036,12 +1023,12 @@ export default function GradesPage() {
                                       {pct}%
                                     </Badge>
                                   </td>
-                                  <td className="px-5 py-3 text-left">
+                                  <td className="px-5 py-3">
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleDeleteGrade(grade.id)}
-                                      className="text-rose-450 hover:text-rose-600 hover:bg-rose-50 h-7 w-7 p-0 rounded-lg"
+                                      className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 h-7 w-7 p-0 rounded-lg"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -1053,25 +1040,25 @@ export default function GradesPage() {
                         </table>
                       </div>
                     ) : (
-                      <div className="p-6 text-center text-slate-400">
-                        <p className="text-xs font-semibold">لا توجد علامات مسجلة لهذا الطالب</p>
+                      <div className="p-6 text-center text-muted-foreground">
+                        <p className="text-xs font-semibold">{gp.noGrades}</p>
                       </div>
                     )}
                   </Card>
                 ))}
               </div>
             ) : (
-              <Card className="bg-white border border-slate-100 p-12 text-center rounded-2xl shadow-sm">
-                <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-bold text-slate-700">لا يوجد طلاب متطابقون مع كلمة البحث</p>
+              <Card className="bg-card border border-border/50 p-12 text-center rounded-2xl shadow-sm">
+                <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm font-bold text-foreground">{gp.noGrades}</p>
               </Card>
             )
           ) : (
-            <Card className="bg-white border border-slate-100 p-12 text-center rounded-2xl shadow-sm">
-              <Search className="h-12 w-12 text-slate-350 mx-auto mb-4" />
-              <h3 className="text-base font-bold text-slate-750">رصد الدرجات وسجل البحث</h3>
-              <p className="text-xs text-slate-405 mt-1 max-w-xs mx-auto">
-                قم بإدخال اسم الطالب في حقل البحث أعلاه ليتم رصد وتلخيص درجاته بالفصل المحدد.
+            <Card className="bg-card border border-border/50 p-12 text-center rounded-2xl shadow-sm">
+              <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-base font-bold text-foreground">{gp.title}</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                {gp.noGradesDesc}
               </p>
             </Card>
           )}
@@ -1101,13 +1088,13 @@ export default function GradesPage() {
         initial="hidden"
         animate="show"
         variants={containerVariants}
-        className="space-y-6 text-right"
-        dir="rtl"
+        className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
+        dir={language === "ar" ? "rtl" : "ltr"}
       >
         {/* Header Section */}
         <motion.div
           variants={itemVariants}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm"
         >
           <div className="flex items-center gap-3">
             <Button
@@ -1117,21 +1104,21 @@ export default function GradesPage() {
                 setViewMode("all-grades")
                 setAllGradesSelectedStudent(null)
               }}
-              className="text-slate-500 hover:bg-slate-100 h-9 w-9 p-0 rounded-lg"
+              className="text-muted-foreground hover:bg-muted h-9 w-9 p-0 rounded-lg"
             >
               <ChevronLeft className="h-5 w-5 rotate-180" />
             </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-650">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <User className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">{allGradesSelectedStudent.name}</h1>
-              <p className="text-xs sm:text-sm text-slate-400">سجل الدرجات المفصل والدرجات الأكاديمية</p>
+              <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{allGradesSelectedStudent.name}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{gp.title}</p>
             </div>
           </div>
 
           <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-32 border-slate-200 rounded-xl h-10 text-xs">
+            <SelectTrigger className="w-32 border-border rounded-xl h-10 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1146,50 +1133,50 @@ export default function GradesPage() {
 
         {/* Detailed Grades Card */}
         <motion.div variants={itemVariants}>
-          <Card className="bg-white border border-slate-100 shadow-sm overflow-hidden rounded-2xl">
-            <div className="bg-slate-50/50 border-b border-slate-100 px-5 py-4 flex items-center justify-between">
+          <Card className="bg-card border border-border/50 shadow-sm overflow-hidden rounded-2xl">
+            <div className="bg-muted/30 border-b border-border/50 px-5 py-4 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-800">بيانات التقييمات</h3>
-                <p className="text-xs text-slate-400 mt-0.5">الصف: {getClassName(allGradesSelectedStudent.classId)}</p>
+                <h3 className="font-bold text-foreground">{gp.examType}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.forms.class}: {getClassName(allGradesSelectedStudent.classId)}</p>
               </div>
 
               {average !== null && (
                 <Badge className={`rounded-xl py-1.5 px-3 font-bold border ${getGradeColor(average)}`}>
-                  المعدل الأكاديمي: {average}%
+                  {gp.percentage}: {average}%
                 </Badge>
               )}
             </div>
 
             {studentGrades.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
+                <table className={`w-full text-sm ${language === "ar" ? "text-right" : "text-left"}`}>
                   <thead>
-                    <tr className="bg-slate-50/20 border-b border-slate-100">
-                      <th className="px-5 py-2.5 font-bold text-slate-400 text-xs">المادة</th>
-                      <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">التقييم</th>
-                      <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">المعلم</th>
-                      <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">العلامة</th>
-                      <th className="px-5 py-2.5 font-bold text-slate-400 text-xs text-center">النسبة</th>
+                    <tr className="bg-muted/20 border-b border-border/50">
+                      <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs">{gp.subject}</th>
+                      <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.examType}</th>
+                      <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{t.schedulePage.teacher}</th>
+                      <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.grade}</th>
+                      <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.percentage}</th>
                       <th className="px-5 py-2.5 w-12"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/60">
+                  <tbody className="divide-y divide-border/40">
                     {studentGrades.map((grade) => {
                       const pct = Math.round((grade.grade / grade.maxGrade) * 100)
                       return (
-                        <tr key={grade.id} className="hover:bg-slate-50/20 transition-colors">
+                        <tr key={grade.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-5 py-3">
-                            <span className="font-bold text-slate-700">{grade.subject}</span>
+                            <span className="font-bold text-foreground">{grade.subject}</span>
                           </td>
                           <td className="px-5 py-3 text-center">
-                            <Badge variant="outline" className="text-[10px] font-bold rounded bg-slate-50 border-slate-205">
-                              {EXAM_TYPE_DISPLAY[grade.examType] || grade.examType}
+                            <Badge variant="outline" className="text-[10px] font-bold rounded bg-muted border-border">
+                              {getExamTypeLabel(grade.examType)}
                             </Badge>
                           </td>
-                          <td className="px-5 py-3 text-center text-xs text-slate-505">
+                          <td className="px-5 py-3 text-center text-xs text-muted-foreground">
                             {getTeacherName(grade.teacherId)}
                           </td>
-                          <td className="px-5 py-3 text-center font-bold text-slate-700">
+                          <td className="px-5 py-3 text-center font-bold text-foreground">
                             {grade.grade} / {grade.maxGrade}
                           </td>
                           <td className="px-5 py-3 text-center">
@@ -1197,12 +1184,12 @@ export default function GradesPage() {
                               {pct}%
                             </Badge>
                           </td>
-                          <td className="px-5 py-3 text-left">
+                          <td className="px-5 py-3">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteGrade(grade.id)}
-                              className="text-rose-450 hover:text-rose-600 hover:bg-rose-50 h-7 w-7 p-0 rounded-lg"
+                              className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 h-7 w-7 p-0 rounded-lg"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1214,8 +1201,8 @@ export default function GradesPage() {
                 </table>
               </div>
             ) : (
-              <div className="p-10 text-center text-slate-400">
-                <p className="text-xs font-semibold">لا توجد درجات مسجلة لهذا الطالب في العام المحدد.</p>
+              <div className="p-10 text-center text-muted-foreground">
+                <p className="text-xs font-semibold">{gp.noGrades}</p>
               </div>
             )}
           </Card>
@@ -1226,3 +1213,4 @@ export default function GradesPage() {
 
   return null
 }
+

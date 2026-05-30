@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { setCurrentUser } from "@/lib/store"
 import { supabaseSignUp } from "@/lib/auth"
 import { motion } from "framer-motion"
 
@@ -45,7 +44,6 @@ export default function RegisterPage() {
 
     const user = await supabaseSignUp(name, email, password)
     if (user) {
-      setCurrentUser(user)
       toast.success("تم إنشاء الحساب بنجاح!")
       router.push("/dashboard")
     } else {
@@ -167,3 +165,4 @@ export default function RegisterPage() {
     </main>
   )
 }
+

@@ -6,6 +6,7 @@ export interface TokenPayload {
   email: string;
   role: string;
   name: string;
+  teacherId?: string;
 }
 
 export function generateToken(payload: TokenPayload): string {

@@ -2,16 +2,27 @@ import { Router } from "express";
 import { TeachersController } from "../controllers/teachers.controller";
 import { teacherValidator, teacherAssignmentValidator } from "../validators/teacher.validator";
 import { validate } from "../middleware/validate.middleware";
-import { authenticate } from "../middleware/auth.middleware";
+import { authenticate, requireAdmin } from "../middleware/auth.middleware";
+import { rateLimit } from "../middleware/rate-limit.middleware";
 
 const router = Router();
 
-// For reading assignments/teachers on landing page, some endpoints could be public.
-// However, the instructions say the app must be production ready. Let's make teachers public read, but secure for modifications.
-router.get("/", TeachersController.getAll);
-router.get("/assignments", TeachersController.getAllAssignments);
+const publicLimiter = rateLimit({ windowMs: 60 * 1000, maxHits: 300, keyPrefix: "teachers-pub" });
+
+// Public reads (landing page): rate-limited
+router.get("/", publicLimiter, TeachersController.getAll);
+router.get("/assignments", publicLimiter, TeachersController.getAllAssignments);
 
 router.use(authenticate);
+
+// --- Admin Teacher Account Management (must be before /:id) ---
+router.use("/accounts", requireAdmin);
+router.get("/accounts", TeachersController.getAccounts);
+router.post("/accounts", TeachersController.createAccount);
+router.put("/accounts/:id", TeachersController.updateAccount);
+router.delete("/accounts/:id", TeachersController.deleteAccount);
+router.patch("/accounts/:id/status", TeachersController.toggleStatus);
+router.patch("/accounts/:id/reset-password", TeachersController.resetPassword);
 
 router.get("/:id", TeachersController.getById);
 router.post("/", teacherValidator, validate, TeachersController.create);

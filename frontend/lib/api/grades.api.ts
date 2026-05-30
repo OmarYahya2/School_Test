@@ -4,8 +4,8 @@ import type { Grade } from "../store";
 export async function fetchGrades(): Promise<Grade[]> {
   try {
     return await client.get<Grade[]>("/grades");
-  } catch (error) {
-    console.error("fetchGrades error:", error);
+  } catch (error: any) {
+    console.error("fetchGrades error:", error?.message || error?.status || error);
     return [];
   }
 }
@@ -13,8 +13,8 @@ export async function fetchGrades(): Promise<Grade[]> {
 export async function fetchGradesByStudent(studentId: string): Promise<Grade[]> {
   try {
     return await client.get<Grade[]>(`/grades/student/${studentId}`);
-  } catch (error) {
-    console.error("fetchGradesByStudent error:", error);
+  } catch (error: any) {
+    console.error("fetchGradesByStudent error:", error?.message || error?.status || error);
     return [];
   }
 }

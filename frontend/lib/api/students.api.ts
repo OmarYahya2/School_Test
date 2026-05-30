@@ -4,8 +4,8 @@ import type { Student } from "../store";
 export async function fetchStudents(): Promise<Student[]> {
   try {
     return await client.get<Student[]>("/students");
-  } catch (error) {
-    console.error("fetchStudents error:", error);
+  } catch (error: any) {
+    console.error("fetchStudents error:", error?.message || error?.status || error);
     return [];
   }
 }
@@ -13,8 +13,8 @@ export async function fetchStudents(): Promise<Student[]> {
 export async function fetchStudentsByClass(classId: string): Promise<Student[]> {
   try {
     return await client.get<Student[]>(`/students/class/${classId}`);
-  } catch (error) {
-    console.error("fetchStudentsByClass error:", error);
+  } catch (error: any) {
+    console.error("fetchStudentsByClass error:", error?.message || error?.status || error);
     return [];
   }
 }
@@ -22,8 +22,8 @@ export async function fetchStudentsByClass(classId: string): Promise<Student[]> 
 export async function fetchStudentById(id: string): Promise<Student | null> {
   try {
     return await client.get<Student>(`/students/${id}`);
-  } catch (error) {
-    console.error("fetchStudentById error:", error);
+  } catch (error: any) {
+    console.error("fetchStudentById error:", error?.message || error?.status || error);
     return null;
   }
 }

@@ -34,6 +34,18 @@ class AuthController {
             next(error);
         }
     }
+    static async updateMe(req, res, next) {
+        try {
+            if (!req.user) {
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            }
+            const updated = await auth_service_1.AuthService.updateProfile(req.user.id, req.body);
+            return (0, response_utils_1.sendSuccess)(res, updated, "Profile updated successfully", 200);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     static async refresh(req, res, next) {
         try {
             const { refreshToken } = req.body;

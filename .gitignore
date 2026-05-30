@@ -7,7 +7,7 @@ __v0_jsx-dev-runtime.ts
 /node_modules
 /.pnp
 .pnp.js
-
+frontend/.next
 # testing
 /coverage
 

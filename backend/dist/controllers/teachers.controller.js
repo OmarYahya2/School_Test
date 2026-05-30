@@ -51,6 +51,63 @@ class TeachersController {
             next(error);
         }
     }
+    // --- Admin Teacher Account Management ---
+    static async getAccounts(req, res, next) {
+        try {
+            const accounts = await teachers_service_1.TeachersService.getTeacherAccounts();
+            return (0, response_utils_1.sendSuccess)(res, accounts, "Teacher accounts fetched successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async createAccount(req, res, next) {
+        try {
+            const account = await teachers_service_1.TeachersService.createTeacherAccount(req.body);
+            return (0, response_utils_1.sendSuccess)(res, account, "Teacher account created successfully", 201);
+        }
+        catch (error) {
+            console.error("[createAccount] error:", error?.message || error, "body:", req.body);
+            next(error);
+        }
+    }
+    static async updateAccount(req, res, next) {
+        try {
+            const account = await teachers_service_1.TeachersService.updateTeacherAccount(req.params.id, req.body);
+            return (0, response_utils_1.sendSuccess)(res, account, "Teacher account updated successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async deleteAccount(req, res, next) {
+        try {
+            await teachers_service_1.TeachersService.deleteTeacherAccount(req.params.id);
+            return (0, response_utils_1.sendSuccess)(res, null, "Teacher account deleted successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async toggleStatus(req, res, next) {
+        try {
+            const account = await teachers_service_1.TeachersService.toggleTeacherStatus(req.params.id);
+            return (0, response_utils_1.sendSuccess)(res, account, "Teacher status updated successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async resetPassword(req, res, next) {
+        try {
+            const { password } = req.body;
+            await teachers_service_1.TeachersService.resetTeacherPassword(req.params.id, password);
+            return (0, response_utils_1.sendSuccess)(res, null, "Password reset successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     // --- Assignments ---
     static async getAllAssignments(req, res, next) {
         try {

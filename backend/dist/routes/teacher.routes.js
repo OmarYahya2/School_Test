@@ -1,0 +1,27 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const teacher_controller_1 = require("../controllers/teacher.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_1.authenticate);
+router.use(auth_middleware_1.requireTeacher);
+router.use(auth_middleware_1.injectTeacher);
+router.get("/me", teacher_controller_1.TeacherController.getProfile);
+router.get("/students", teacher_controller_1.TeacherController.getMyStudents);
+router.post("/students", teacher_controller_1.TeacherController.createStudent);
+router.put("/students/:id", teacher_controller_1.TeacherController.updateStudent);
+router.delete("/students/:id", teacher_controller_1.TeacherController.deleteStudent);
+router.get("/class", teacher_controller_1.TeacherController.getMyClass);
+router.get("/grades", teacher_controller_1.TeacherController.getMyGrades);
+router.post("/grades", teacher_controller_1.TeacherController.createGrade);
+router.put("/grades/:id", teacher_controller_1.TeacherController.updateGrade);
+router.delete("/grades/:id", teacher_controller_1.TeacherController.deleteGrade);
+router.get("/schedule", teacher_controller_1.TeacherController.getMySchedule);
+router.post("/attendance", teacher_controller_1.TeacherController.saveAttendance);
+router.get("/files", teacher_controller_1.TeacherController.getMyFiles);
+router.post("/files", teacher_controller_1.TeacherController.createFile);
+router.get("/qr", teacher_controller_1.TeacherController.getMyQR);
+router.get("/analytics", teacher_controller_1.TeacherController.getMyAnalytics);
+exports.default = router;
+//# sourceMappingURL=teacher.routes.js.map

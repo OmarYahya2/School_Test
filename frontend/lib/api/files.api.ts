@@ -5,7 +5,7 @@ export async function fetchSubjectFiles(): Promise<SubjectFile[]> {
   try {
     return await client.get<SubjectFile[]>("/files");
   } catch (error) {
-    console.error("fetchSubjectFiles error:", error);
+    if (!(error as any)?.silent) console.error("fetchSubjectFiles error:", error);
     return [];
   }
 }
@@ -23,7 +23,7 @@ export async function fetchSubjectFilesByFilter(
     });
     return await client.get<SubjectFile[]>(`/files/filter?${params.toString()}`);
   } catch (error) {
-    console.error("fetchSubjectFilesByFilter error:", error);
+    if (!(error as any)?.silent) console.error("fetchSubjectFilesByFilter error:", error);
     return [];
   }
 }

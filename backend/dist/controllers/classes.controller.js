@@ -4,9 +4,21 @@ exports.ClassesController = void 0;
 const classes_service_1 = require("../services/classes.service");
 const response_utils_1 = require("../utils/response.utils");
 const pagination_utils_1 = require("../utils/pagination.utils");
+const prisma_1 = require("../lib/prisma");
 class ClassesController {
     static async getAll(req, res, next) {
         try {
+            if (req.teacher) {
+                const classes = await prisma_1.prisma.class.findMany({
+                    where: { teacherId: req.teacher.id },
+                    include: {
+                        teacher: { select: { id: true, name: true, phone: true, subject: true } },
+                        _count: { select: { students: true } },
+                    },
+                    orderBy: { name: "asc" },
+                });
+                return (0, response_utils_1.sendSuccess)(res, classes, "Classes fetched successfully");
+            }
             const { page, limit } = req.query;
             if (page || limit) {
                 const { skip, take, page: p, limit: l } = (0, pagination_utils_1.getPaginationParams)(req.query);
@@ -27,6 +39,9 @@ class ClassesController {
     static async getById(req, res, next) {
         try {
             const schoolClass = await classes_service_1.ClassesService.getClassById(req.params.id);
+            if (req.teacher && schoolClass.teacherId !== req.teacher.id) {
+                return (0, response_utils_1.sendError)(res, "Access denied. This class is not assigned to you.", 403);
+            }
             return (0, response_utils_1.sendSuccess)(res, schoolClass, "Class fetched successfully");
         }
         catch (error) {
@@ -48,6 +63,7 @@ class ClassesController {
             return (0, response_utils_1.sendSuccess)(res, schoolClass, "Class updated successfully");
         }
         catch (error) {
+            console.error("[ClassesController.update] error:", error?.message || error, "body:", req.body);
             next(error);
         }
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import {
   Plus,
   Trash2,
@@ -47,14 +47,13 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { ScheduleItem, SchoolClass, Teacher } from "@/lib/store"
 import {
-  fetchScheduleByClass,
   createScheduleItem,
   updateScheduleItem,
   deleteScheduleItem,
-  fetchClasses,
-  fetchTeachers,
 } from "@/lib/supabase-school"
-import { motion } from "framer-motion"
+import { useAdminScheduleByClass, useAdminClasses, useAdminTeachers } from "@/lib/hooks/use-admin-data"
+import { motion, type Variants } from "framer-motion"
+import { useLanguage } from "@/lib/i18n/context"
 
 const DAYS = [
   { id: 0, name: "الأحد", short: "أحد" },
@@ -76,7 +75,7 @@ const DEFAULT_PERIODS = [
 ]
 
 const SUBJECT_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  "رياضيات": { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" },
+  "رياضيات": { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" },
   "علوم": { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
   "لغة عربية": { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
   "لغة إنجليزية": { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
@@ -98,23 +97,26 @@ function getSubjectColor(subject: string) {
   return SUBJECT_COLORS[subject] || { bg: "bg-slate-50", border: "border-slate-200", text: "text-slate-700" }
 }
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.05 } },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } },
 }
 
 export default function SchedulePage() {
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
-  const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const { t, language } = useLanguage()
+  const sp = t.schedulePage
   const [selectedClass, setSelectedClass] = useState<string>("")
   const [selectedSemester, setSelectedSemester] = useState<number>(1)
-  const [loading, setLoading] = useState(true)
+
+  const { data: schedule = [], isLoading: scheduleLoading, refetch: refetchSchedule } = useAdminScheduleByClass(selectedClass, selectedSemester)
+  const { data: classes = [], isLoading: classesLoading } = useAdminClasses()
+  const { data: teachers = [] } = useAdminTeachers()
+  const loading = scheduleLoading || classesLoading
 
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -129,38 +131,12 @@ export default function SchedulePage() {
   const [startTime, setStartTime] = useState("08:00")
   const [endTime, setEndTime] = useState("08:45")
 
-  const reload = useCallback(async () => {
-    if (!selectedClass) {
-      setSchedule([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    const [scheduleData, classesData, teachersData] = await Promise.all([
-      fetchScheduleByClass(selectedClass, selectedSemester),
-      fetchClasses(),
-      fetchTeachers(),
-    ])
-    setSchedule(scheduleData)
-    setClasses(classesData)
-    setTeachers(teachersData)
-    setLoading(false)
-  }, [selectedClass, selectedSemester])
-
+  // Set initial selected class when classes load
   useEffect(() => {
-    void reload()
-  }, [reload])
-
-  useEffect(() => {
-    async function loadInitial() {
-      const classesData = await fetchClasses()
-      setClasses(classesData)
-      if (classesData.length > 0 && !selectedClass) {
-        setSelectedClass(classesData[0].id)
-      }
+    if (classes.length > 0 && !selectedClass) {
+      setSelectedClass(classes[0].id)
     }
-    void loadInitial()
-  }, [])
+  }, [classes, selectedClass])
 
   const getScheduleItem = (dayId: number, periodNumber: number) => {
     return schedule.find(
@@ -197,11 +173,11 @@ export default function SchedulePage() {
 
   const handleAddScheduleItem = async () => {
     if (!selectedClass) {
-      toast.error("يرجى اختيار الصف أولاً")
+      toast.error(t.forms.selectClass)
       return
     }
     if (!selectedSubject && !customSubject.trim()) {
-      toast.error("يرجى اختيار المادة")
+      toast.error(t.forms.selectSubject)
       return
     }
 
@@ -210,7 +186,7 @@ export default function SchedulePage() {
 
     const existing = getScheduleItem(selectedDay, selectedPeriod)
     if (existing) {
-      toast.error("هناك حصة مسجلة في هذا الوقت بالفعل")
+      toast.error(sp.addSuccess)
       return
     }
 
@@ -226,14 +202,14 @@ export default function SchedulePage() {
     )
 
     if (!created) {
-      toast.error("حدث خطأ أثناء إضافة الحصة")
+      toast.error(t.dashboard.loadingError)
       return
     }
 
     resetForm()
     setAddOpen(false)
-    void reload()
-    toast.success("تمت إضافة الحصة بنجاح")
+    void refetchSchedule()
+    toast.success(sp.addSuccess)
   }
 
   const handleEditClick = (item: ScheduleItem) => {
@@ -262,7 +238,7 @@ export default function SchedulePage() {
 
     const subject = selectedSubject === "custom" ? customSubject.trim() : selectedSubject
     if (!subject) {
-      toast.error("يرجى إدخال اسم المادة")
+      toast.error(t.forms.selectSubject)
       return
     }
 
@@ -277,21 +253,21 @@ export default function SchedulePage() {
     })
 
     if (!updated) {
-      toast.error("حدث خطأ أثناء تحديث الحصة")
+      toast.error(t.dashboard.loadingError)
       return
     }
 
     setEditOpen(false)
     setEditingItem(null)
     resetForm()
-    void reload()
-    toast.success("تم تحديث الحصة بنجاح")
+    void refetchSchedule()
+    toast.success(sp.addSuccess)
   }
 
   const handleDeleteScheduleItem = async (id: string) => {
     await deleteScheduleItem(id)
-    void reload()
-    toast.success("تم حذف الحصة بنجاح")
+    void refetchSchedule()
+    toast.success(sp.deleteSuccess)
   }
 
   const stats = {
@@ -304,21 +280,21 @@ export default function SchedulePage() {
     <div className="flex flex-col gap-4 pt-2">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-slate-700 font-bold text-xs">الفصل الدراسي</Label>
+          <Label className="text-muted-foreground font-bold text-xs">{sp.period}</Label>
           <Select value={formSemester.toString()} onValueChange={(v) => setFormSemester(parseInt(v))}>
-            <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-10">
+            <SelectTrigger className="bg-background border-border rounded-xl h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">الفصل الأول</SelectItem>
-              <SelectItem value="2">الفصل الثاني</SelectItem>
+              <SelectItem value="1">{t.teachersPage.firstSemester}</SelectItem>
+              <SelectItem value="2">{t.teachersPage.secondSemester}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-slate-700 font-bold text-xs">اليوم</Label>
+          <Label className="text-muted-foreground font-bold text-xs">{sp.day}</Label>
           <Select value={selectedDay.toString()} onValueChange={(v) => setSelectedDay(parseInt(v))}>
-            <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-10">
+            <SelectTrigger className="bg-background border-border rounded-xl h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -331,15 +307,15 @@ export default function SchedulePage() {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-slate-700 font-bold text-xs">الحصة</Label>
+        <Label className="text-muted-foreground font-bold text-xs">{sp.period}</Label>
         <Select value={selectedPeriod.toString()} onValueChange={(v) => handlePeriodChange(parseInt(v))}>
-          <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-10">
+          <SelectTrigger className="bg-background border-border rounded-xl h-10">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {DEFAULT_PERIODS.map((period) => (
               <SelectItem key={period.number} value={period.number.toString()}>
-                الحصة {period.number} ({period.start} - {period.end})
+                {sp.periodNumber} {period.number} ({period.start} - {period.end})
               </SelectItem>
             ))}
           </SelectContent>
@@ -347,36 +323,36 @@ export default function SchedulePage() {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-slate-700 font-bold text-xs">المادة</Label>
+        <Label className="text-muted-foreground font-bold text-xs">{sp.subject}</Label>
         <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-          <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-10">
-            <SelectValue placeholder="اختر المادة" />
+          <SelectTrigger className="bg-background border-border rounded-xl h-10">
+            <SelectValue placeholder={t.forms.selectSubject} />
           </SelectTrigger>
           <SelectContent>
             {COMMON_SUBJECTS.map((subject) => (
               <SelectItem key={subject} value={subject}>{subject}</SelectItem>
             ))}
-            <SelectItem value="custom">مادة أخرى...</SelectItem>
+            <SelectItem value="custom">{t.forms.optional}</SelectItem>
           </SelectContent>
         </Select>
         {selectedSubject === "custom" && (
           <Input
-            placeholder="أدخل اسم المادة"
+            placeholder={sp.subject}
             value={customSubject}
             onChange={(e) => setCustomSubject(e.target.value)}
-            className="mt-2 bg-slate-50/50 border-slate-200 rounded-xl h-10"
+            className="mt-2 bg-background border-border rounded-xl h-10"
           />
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-slate-700 font-bold text-xs">المعلم (اختياري)</Label>
+        <Label className="text-muted-foreground font-bold text-xs">{sp.teacher} ({t.forms.optional})</Label>
         <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
-          <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-10">
-            <SelectValue placeholder="اختر المعلم" />
+          <SelectTrigger className="bg-background border-border rounded-xl h-10">
+            <SelectValue placeholder={t.forms.selectTeacher} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">بدون معلم</SelectItem>
+            <SelectItem value="none">{t.studentsPage.noPhone}</SelectItem>
             {teachers.map((teacher) => (
               <SelectItem key={teacher.id} value={teacher.id}>
                 {teacher.name} {teacher.subject ? `- ${teacher.subject}` : ""}
@@ -388,32 +364,32 @@ export default function SchedulePage() {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-slate-700 font-bold text-xs">وقت البدء</Label>
-          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="bg-slate-50/50 border-slate-200 rounded-xl h-10" />
+          <Label className="text-muted-foreground font-bold text-xs">{sp.from}</Label>
+          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="bg-background border-border rounded-xl h-10" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-slate-700 font-bold text-xs">وقت الانتهاء</Label>
-          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="bg-slate-50/50 border-slate-200 rounded-xl h-10" />
+          <Label className="text-muted-foreground font-bold text-xs">{sp.to}</Label>
+          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="bg-background border-border rounded-xl h-10" />
         </div>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
         <Button
           variant="outline"
-          className="border-slate-200 rounded-xl h-10"
+          className="border-border rounded-xl h-10"
           onClick={() => {
             if (isEditing) { setEditOpen(false); setEditingItem(null) } else { setAddOpen(false) }
             resetForm()
           }}
         >
-          إلغاء
+          {t.actions.cancel}
         </Button>
         <Button
           onClick={isEditing ? handleUpdateScheduleItem : handleAddScheduleItem}
-          className="bg-gradient-to-r from-indigo-550 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl h-10 px-5 border-0 font-bold gap-2"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-10 px-5 border-0 font-bold gap-2"
         >
           {isEditing ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {isEditing ? "حفظ التغييرات" : "إضافة الحصة"}
+          {isEditing ? t.actions.save : sp.addPeriod}
         </Button>
       </div>
     </div>
@@ -424,35 +400,35 @@ export default function SchedulePage() {
       initial="hidden"
       animate="show"
       variants={containerVariants}
-      className="space-y-6 text-right"
-      dir="rtl"
+      className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
+      dir={language === "ar" ? "rtl" : "ltr"}
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Calendar className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">الجدول الدراسي الأسبوعي</h1>
-            <p className="text-xs sm:text-sm text-slate-400">تنظيم الحصص وتوزيع المواد على أيام الأسبوع للصفوف الدراسية</p>
+            <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{sp.title}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">{sp.noPeriodsDesc}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           <Select value={selectedSemester.toString()} onValueChange={(v) => setSelectedSemester(parseInt(v))}>
-            <SelectTrigger className="w-36 border-slate-200 rounded-xl h-9 text-xs">
+            <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">الفصل الأول</SelectItem>
-              <SelectItem value="2">الفصل الثاني</SelectItem>
+              <SelectItem value="1">{t.teachersPage.firstSemester}</SelectItem>
+              <SelectItem value="2">{t.teachersPage.secondSemester}</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={selectedClass} onValueChange={setSelectedClass}>
-            <SelectTrigger className="w-44 border-slate-200 rounded-xl h-9 text-xs">
-              <SelectValue placeholder="اختر الصف" />
+            <SelectTrigger className="w-44 border-border rounded-xl h-9 text-xs">
+              <SelectValue placeholder={t.forms.selectClass} />
             </SelectTrigger>
             <SelectContent>
               {classes.map((cls) => (
@@ -463,16 +439,16 @@ export default function SchedulePage() {
 
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button className="h-9 bg-gradient-to-r from-indigo-550 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/10 border-0 flex items-center gap-1.5 text-xs" disabled={!selectedClass}>
+              <Button className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold border-0 flex items-center gap-1.5 text-xs" disabled={!selectedClass}>
                 <Plus className="h-4 w-4" />
-                <span>إضافة حصة</span>
+                <span>{sp.addPeriod}</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-md">
+            <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className={`${language === "ar" ? "text-right" : "text-left"} bg-card border-border rounded-2xl max-w-md`}>
               <DialogHeader>
-                <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                  إضافة حصة جديدة
+                <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  {sp.addPeriod}
                 </DialogTitle>
               </DialogHeader>
               {renderScheduleForm(false)}
@@ -482,49 +458,31 @@ export default function SchedulePage() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid gap-4 sm:grid-cols-3">
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="h-11 w-11 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-              <BookOpen className="h-5.5 w-5.5" />
-            </div>
-            <div>
-              <p className="text-xl font-black text-slate-850">{stats.totalLessons}</p>
-              <p className="text-[11px] font-semibold text-slate-400">إجمالي الحصص الأسبوعية</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="h-11 w-11 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-              <Calendar className="h-5.5 w-5.5" />
-            </div>
-            <div>
-              <p className="text-xl font-black text-slate-850">{stats.uniqueSubjects}</p>
-              <p className="text-[11px] font-semibold text-slate-400">المواد الدراسية</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="h-11 w-11 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-              <User className="h-5.5 w-5.5" />
-            </div>
-            <div>
-              <p className="text-xl font-black text-slate-850">{stats.lessonsWithTeachers}</p>
-              <p className="text-[11px] font-semibold text-slate-400">حصص مع معلمين مسندين</p>
-            </div>
-          </CardContent>
-        </Card>
+      <motion.div variants={itemVariants} className="grid gap-3 sm:grid-cols-3">
+        {[
+          { value: stats.totalLessons, label: sp.addPeriod, icon: <BookOpen className="h-4 w-4" />, iconBg: "bg-primary/10 text-primary" },
+          { value: stats.uniqueSubjects, label: sp.subject, icon: <Calendar className="h-4 w-4" />, iconBg: "bg-purple-500/10 text-purple-600" },
+          { value: stats.lessonsWithTeachers, label: sp.teacher, icon: <User className="h-4 w-4" />, iconBg: "bg-amber-500/10 text-amber-600" },
+        ].map((card, i) => (
+          <Card key={i} className="border border-border/50 bg-card shadow-sm rounded-2xl">
+            <CardContent className="p-4">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg mb-3 ${card.iconBg}`}>
+                {card.icon}
+              </div>
+              <p className="text-xl font-black text-foreground leading-none">{card.value}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground mt-1.5">{card.label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </motion.div>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-md">
+        <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className={`${language === "ar" ? "text-right" : "text-left"} bg-card border-border rounded-2xl max-w-md`}>
           <DialogHeader>
-            <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
-              <Edit3 className="h-4.5 w-4.5 text-indigo-500" />
-              تعديل الحصة الدراسية
+            <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
+              <Edit3 className="h-4 w-4 text-primary" />
+              {t.actions.edit} {sp.period}
             </DialogTitle>
           </DialogHeader>
           {renderScheduleForm(true)}
@@ -533,36 +491,47 @@ export default function SchedulePage() {
 
       {/* Schedule Grid */}
       <motion.div variants={itemVariants}>
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Card className="border border-border/50 bg-card shadow-sm rounded-2xl overflow-hidden">
+          <div className="p-5 border-b border-border/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-indigo-500" />
+              <Clock className="h-5 w-5 text-primary" />
               <div>
-                <h3 className="font-bold text-slate-800">شبكة الجدول الأسبوعي</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {selectedClass ? classes.find((c) => c.id === selectedClass)?.name || "الصف المختار" : "اختر صفاً لعرض جدوله"}
+                <h3 className="font-bold text-foreground">{sp.title}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {selectedClass ? classes.find((c) => c.id === selectedClass)?.name || sp.class : sp.noPeriodsDesc}
                 </p>
               </div>
             </div>
-            <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 rounded-lg py-1 px-3 font-bold text-xs w-fit">
-              {selectedSemester === 1 ? "الفصل الأول" : "الفصل الثاني"}
+            <Badge className="bg-primary/10 text-primary rounded-lg py-1 px-3 font-bold text-xs w-fit">
+              {selectedSemester === 1 ? t.teachersPage.firstSemester : t.teachersPage.secondSemester}
             </Badge>
           </div>
 
           <CardContent className="p-5">
             {!selectedClass ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <GraduationCap className="mb-4 h-12 w-12 text-slate-300" />
-                <p className="text-sm font-bold text-slate-600">اختر الصف الدراسي لعرض الجدول</p>
-                <p className="mt-1 text-xs text-slate-400">اختر الصف والفصل من القوائم بالأعلى</p>
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <GraduationCap className="mb-4 h-12 w-12 text-muted-foreground/20" />
+                <p className="text-sm font-bold text-foreground">{sp.noPeriods}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{sp.noPeriodsDesc}</p>
               </div>
             ) : loading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="relative h-12 w-12 mb-4">
-                  <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
-                  <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin" />
+              <div className="hidden lg:block overflow-x-auto">
+                <div className="min-w-[900px] space-y-1.5">
+                  <div className="grid grid-cols-9 gap-1.5">
+                    <div className="h-12 skeleton rounded-xl" />
+                    {DEFAULT_PERIODS.map((_, i) => (
+                      <div key={i} className="h-12 skeleton rounded-xl" />
+                    ))}
+                  </div>
+                  {Array.from({ length: 5 }).map((_, r) => (
+                    <div key={r} className="grid grid-cols-9 gap-1.5">
+                      <div className="h-[72px] skeleton rounded-xl" />
+                      {DEFAULT_PERIODS.map((_, c) => (
+                        <div key={c} className="h-[72px] skeleton rounded-xl opacity-50" />
+                      ))}
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-slate-400">جاري تحميل الجدول...</p>
               </div>
             ) : (
               <>
@@ -570,13 +539,13 @@ export default function SchedulePage() {
                 <div className="hidden lg:block overflow-x-auto">
                   <div className="min-w-[900px]">
                     <div className="grid grid-cols-9 gap-1.5 mb-1.5">
-                      <div className="p-2.5 text-center font-bold text-slate-500 bg-slate-50 rounded-xl text-xs">
-                        اليوم / الحصة
+                      <div className="p-2.5 text-center font-bold text-muted-foreground bg-muted/60 rounded-xl text-xs">
+                        {sp.day} / {sp.period}
                       </div>
                       {DEFAULT_PERIODS.map((period) => (
-                        <div key={period.number} className="p-2.5 text-center font-bold text-slate-700 bg-slate-50 rounded-xl">
-                          <div className="text-xs">الحصة {period.number}</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5 font-mono">{period.start}-{period.end}</div>
+                        <div key={period.number} className="p-2.5 text-center font-bold text-foreground bg-muted/60 rounded-xl">
+                          <div className="text-xs">{sp.periodNumber} {period.number}</div>
+                          <div className="text-[9px] text-muted-foreground mt-0.5 font-mono">{period.start}-{period.end}</div>
                         </div>
                       ))}
                     </div>
@@ -584,7 +553,7 @@ export default function SchedulePage() {
                     <div className="space-y-1.5">
                       {DAYS.map((day) => (
                         <div key={day.id} className="grid grid-cols-9 gap-1.5">
-                          <div className="p-2.5 bg-slate-50/60 rounded-xl flex items-center justify-center text-xs font-bold text-slate-600">
+                          <div className="p-2.5 bg-muted/40 rounded-xl flex items-center justify-center text-xs font-bold text-foreground">
                             {day.name}
                           </div>
 
@@ -599,7 +568,7 @@ export default function SchedulePage() {
                                   "p-2 rounded-xl border min-h-[72px] transition-all",
                                   item
                                     ? `${colors?.bg} ${colors?.border} ${colors?.text}`
-                                    : "border-dashed border-slate-200 bg-slate-50/20 hover:bg-slate-50/40"
+                                    : "border-dashed border-border/50 bg-muted/10 hover:bg-muted/20"
                                 )}
                               >
                                 {item ? (
@@ -623,16 +592,16 @@ export default function SchedulePage() {
                                             <Trash2 className="h-3 w-3" />
                                           </button>
                                         </AlertDialogTrigger>
-                                        <AlertDialogContent className="text-right bg-white rounded-2xl border-slate-100">
+                                        <AlertDialogContent className={`${language === "ar" ? "text-right" : "text-left"} bg-card rounded-2xl border-border`}>
                                           <AlertDialogHeader>
-                                            <AlertDialogTitle className="text-slate-900 font-extrabold">حذف الحصة</AlertDialogTitle>
-                                            <AlertDialogDescription className="text-slate-500">
-                                              هل أنت متأكد من حذف حصة &quot;{item.subject}&quot; يوم {DAYS.find((d) => d.id === item.dayOfWeek)?.name}؟
+                                            <AlertDialogTitle className="text-foreground font-extrabold">{t.actions.delete} {sp.period}</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-muted-foreground">
+                                              {item.subject} - {DAYS.find((d) => d.id === item.dayOfWeek)?.name}
                                             </AlertDialogDescription>
                                           </AlertDialogHeader>
                                           <AlertDialogFooter className="flex gap-2">
-                                            <AlertDialogCancel className="border-slate-200 rounded-xl">إلغاء</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteScheduleItem(item.id)} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0">حذف</AlertDialogAction>
+                                            <AlertDialogCancel className="border-border rounded-xl">{t.actions.cancel}</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteScheduleItem(item.id)} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0">{t.actions.delete}</AlertDialogAction>
                                           </AlertDialogFooter>
                                         </AlertDialogContent>
                                       </AlertDialog>
@@ -646,7 +615,7 @@ export default function SchedulePage() {
                                       setFormSemester(selectedSemester)
                                       setAddOpen(true)
                                     }}
-                                    className="w-full h-full flex items-center justify-center text-slate-300 hover:text-slate-500 transition-colors"
+                                    className="w-full h-full flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground transition-colors"
                                   >
                                     <Plus className="h-4 w-4" />
                                   </button>
@@ -665,10 +634,10 @@ export default function SchedulePage() {
                   {DAYS.map((day) => {
                     const dayItems = schedule.filter((item) => item.dayOfWeek === day.id && item.semester === selectedSemester)
                     return (
-                      <div key={day.id} className="border border-slate-100 rounded-xl overflow-hidden bg-white">
-                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                          <span className="font-bold text-slate-800 text-sm">{day.name}</span>
-                          <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 rounded-lg text-[10px] py-0.5 px-2">{dayItems.length} حصة</Badge>
+                      <div key={day.id} className="border border-border/50 rounded-xl overflow-hidden bg-card">
+                        <div className="bg-muted/40 px-4 py-3 border-b border-border/30 flex items-center justify-between">
+                          <span className="font-bold text-foreground text-sm">{day.name}</span>
+                          <Badge className="bg-primary/10 text-primary rounded-lg text-[10px] py-0.5 px-2">{dayItems.length}</Badge>
                         </div>
                         <div className="p-3 space-y-2">
                           {DEFAULT_PERIODS.map((period) => {
@@ -682,10 +651,10 @@ export default function SchedulePage() {
                                   "flex items-center gap-3 p-3 rounded-xl border transition-all",
                                   item
                                     ? `${colors?.bg} ${colors?.border} ${colors?.text}`
-                                    : "border-dashed border-slate-200 bg-slate-50/20 hover:bg-slate-50/30"
+                                    : "border-dashed border-border/50 bg-muted/10 hover:bg-muted/20"
                                 )}
                               >
-                                <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/60 flex items-center justify-center text-xs font-bold text-slate-500 border border-slate-100">
+                                <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-background/60 flex items-center justify-center text-xs font-bold text-muted-foreground border border-border/50">
                                   {period.number}
                                 </div>
 
@@ -714,16 +683,16 @@ export default function SchedulePage() {
                                               <Trash2 className="h-4 w-4" />
                                             </button>
                                           </AlertDialogTrigger>
-                                          <AlertDialogContent className="text-right bg-white rounded-2xl border-slate-100">
+                                          <AlertDialogContent className={`${language === "ar" ? "text-right" : "text-left"} bg-card rounded-2xl border-border`}>
                                             <AlertDialogHeader>
-                                              <AlertDialogTitle className="text-slate-900 font-extrabold">حذف الحصة</AlertDialogTitle>
-                                              <AlertDialogDescription className="text-slate-500">
-                                                هل أنت متأكد من حذف حصة &quot;{item.subject}&quot; يوم {DAYS.find((d) => d.id === item.dayOfWeek)?.name}؟
+                                              <AlertDialogTitle className="text-foreground font-extrabold">{t.actions.delete} {sp.period}</AlertDialogTitle>
+                                              <AlertDialogDescription className="text-muted-foreground">
+                                                {item.subject} - {DAYS.find((d) => d.id === item.dayOfWeek)?.name}
                                               </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter className="flex gap-2">
-                                              <AlertDialogCancel className="border-slate-200 rounded-xl">إلغاء</AlertDialogCancel>
-                                              <AlertDialogAction onClick={() => handleDeleteScheduleItem(item.id)} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0">حذف</AlertDialogAction>
+                                              <AlertDialogCancel className="border-border rounded-xl">{t.actions.cancel}</AlertDialogCancel>
+                                              <AlertDialogAction onClick={() => handleDeleteScheduleItem(item.id)} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0">{t.actions.delete}</AlertDialogAction>
                                             </AlertDialogFooter>
                                           </AlertDialogContent>
                                         </AlertDialog>
@@ -737,10 +706,10 @@ export default function SchedulePage() {
                                         setFormSemester(selectedSemester)
                                         setAddOpen(true)
                                       }}
-                                      className="w-full flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 transition-colors py-1"
+                                      className="w-full flex items-center justify-center gap-2 text-muted-foreground/40 hover:text-muted-foreground transition-colors py-1"
                                     >
                                       <Plus className="h-4 w-4" />
-                                      <span className="text-xs">إضافة حصة</span>
+                                      <span className="text-xs">{sp.addPeriod}</span>
                                     </button>
                                   )}
                                 </div>
@@ -761,9 +730,9 @@ export default function SchedulePage() {
       {/* Legend */}
       {selectedClass && schedule.length > 0 && (
         <motion.div variants={itemVariants}>
-          <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-            <div className="p-5 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-700">دليل المواد الدراسية المستخدمة</h3>
+          <Card className="border border-border/50 bg-card shadow-sm rounded-2xl">
+            <div className="p-5 border-b border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground">{sp.subject}</h3>
             </div>
             <CardContent className="p-5">
               <div className="flex flex-wrap gap-2">
@@ -787,3 +756,4 @@ export default function SchedulePage() {
     </motion.div>
   )
 }
+

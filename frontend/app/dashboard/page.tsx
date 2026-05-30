@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { 
   Users, 
@@ -34,21 +34,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { toast } from "sonner"
 import type { SchoolClass, Teacher, Student, ScheduleItem, SubjectFile } from "@/lib/store"
-import {
-  fetchClasses,
-  fetchStudents,
-  fetchAllSchedule,
-} from "@/lib/supabase-school"
-import { fetchTeachers } from "@/lib/supabase-teachers"
-import { fetchSubjectFiles } from "@/lib/supabase-files"
-import { motion } from "framer-motion"
+import { useAdminClasses, useAdminStudents, useAdminTeachers, useAdminSchedule, useAdminFiles } from "@/lib/hooks/use-admin-data"
+import { SkeletonStats, SkeletonTable, SkeletonGrid } from "@/components/skeletons"
+import { motion, type Variants } from "framer-motion"
+import { useLanguage } from "@/lib/i18n/context"
 
-// Day names in Arabic
-const dayNames = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
-
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -58,18 +50,19 @@ const containerVariants = {
   }
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
 }
 
 export default function DashboardPage() {
-  const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
-  const [files, setFiles] = useState<SubjectFile[]>([])
-  const [loading, setLoading] = useState(true)
+  const { t, language } = useLanguage()
+  const d = t.dashboard
+  const { data: classes = [] } = useAdminClasses()
+  const { data: teachers = [] } = useAdminTeachers()
+  const { data: students = [] } = useAdminStudents()
+  const { data: schedule = [] } = useAdminSchedule()
+  const { data: files = [] } = useAdminFiles()
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Update time every minute
@@ -77,32 +70,6 @@ export default function DashboardPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
-
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [cls, tch, std, sch, fls] = await Promise.all([
-        fetchClasses(),
-        fetchTeachers(),
-        fetchStudents(),
-        fetchAllSchedule(),
-        fetchSubjectFiles(),
-      ])
-      setClasses(cls)
-      setTeachers(tch)
-      setStudents(std)
-      setSchedule(sch)
-      setFiles(fls)
-    } catch (error) {
-      toast.error("حدث خطأ أثناء تحميل البيانات")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
 
   // Stats calculations
   const stats = useMemo(() => {
@@ -144,25 +111,31 @@ export default function DashboardPage() {
       .slice(0, 5)
   }, [students])
 
+  const loading = !classes.length && !teachers.length && !students.length
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-slate-50/50">
-        <div className="relative">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-650" />
-          <div className="absolute inset-0 h-12 w-12 animate-pulse rounded-full bg-indigo-500/10" />
+      <div className="space-y-6">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-100" />
+        <SkeletonStats />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            <SkeletonTable rows={4} cols={4} />
+          </div>
+          <SkeletonGrid count={3} />
         </div>
       </div>
     )
   }
 
-  const formattedDate = currentTime.toLocaleDateString("ar-SA", {
+  const locale = language === "ar" ? "ar-SA" : "en-US"
+  const formattedDate = currentTime.toLocaleDateString(locale, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   })
 
-  const formattedTime = currentTime.toLocaleTimeString("ar-SA", {
+  const formattedTime = currentTime.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   })
@@ -172,43 +145,40 @@ export default function DashboardPage() {
       initial="hidden"
       animate="show"
       variants={containerVariants}
-      className="space-y-6 text-right"
+      className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
     >
       {/* ========== HEADER SECTION - Premium Welcome Banner ========== */}
-      <motion.div 
+      <motion.div
         variants={itemVariants}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-slate-900 via-slate-800 to-indigo-950 p-6 sm:p-8 text-white shadow-xl shadow-slate-950/20"
+        className="relative overflow-hidden rounded-2xl p-6 sm:p-8 text-white shadow-xl"
+        style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 35%, oklch(0.08 0.05 259)) 0%, color-mix(in srgb, var(--primary) 18%, oklch(0.07 0.06 265)) 100%)" }}
       >
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full opacity-10 blur-3xl bg-indigo-500 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full opacity-10 blur-2xl bg-teal-500 pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="absolute top-0 end-0 w-[400px] h-[400px] rounded-full opacity-20 blur-3xl bg-white pointer-events-none" />
+        <div className="absolute bottom-0 start-0 w-[300px] h-[300px] rounded-full opacity-10 blur-2xl bg-white pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
           <div>
-            <div className="flex items-center gap-2 mb-2 justify-start">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
-                <Sparkles className="h-4 w-4 text-indigo-300" />
-              </div>
-              <span className="text-xs sm:text-sm font-semibold text-indigo-200">لوحة الإدارة والمؤشرات</span>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/80 border border-white/10">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {formattedDate}
             </div>
-            <h1 className="text-xl sm:text-3xl font-extrabold mb-1">مرحباً بك في لوحة تحكم مدرسة كفر عقب</h1>
-            <p className="text-xs sm:text-sm text-slate-350 max-w-xl leading-relaxed">
-              تابع إحصائيات المعلمين والطلاب، الجداول الدراسية الأسبوعية، والملفات المقررة بكل سهولة وسرعة.
+            <h1 className="text-xl sm:text-2xl font-extrabold mb-2 leading-snug">{d.welcomeTitle}</h1>
+            <p className="text-xs sm:text-sm text-white/55 max-w-md leading-relaxed">
+              {d.welcomeSubtitle}
             </p>
           </div>
 
-          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-4 bg-slate-900/30 border border-slate-700/30 rounded-xl p-4 min-w-[200px] backdrop-blur-md">
-            <div className="text-right">
-              <p className="text-lg sm:text-xl font-bold tracking-tight text-white leading-none">{formattedTime}</p>
-              <p className="text-[10px] sm:text-xs text-slate-400 mt-1">{formattedDate}</p>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="bg-white/8 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
+              <p className="text-xl font-bold text-white leading-none">{formattedTime}</p>
+              <p className="text-[10px] text-white/40 mt-1">{d.currentTime}</p>
             </div>
-            <div className="flex gap-2">
-              <Button asChild size="sm" className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-650 hover:to-purple-700 text-white rounded-lg font-bold text-xs shadow-md shadow-indigo-500/20 border-0 h-8">
-                <Link href="/dashboard/students?action=add">
-                  <Plus className="ml-1 h-3.5 w-3.5" />
-                  طالب جديد
-                </Link>
-              </Button>
-            </div>
+            <Button asChild size="sm" className="bg-white/15 hover:bg-white/25 text-white rounded-xl font-bold text-xs border border-white/20 h-10 px-4">
+              <Link href="/dashboard/students">
+                <Plus className="ms-0 me-1 h-3.5 w-3.5" />
+                {d.newStudent}
+              </Link>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -219,37 +189,23 @@ export default function DashboardPage() {
         className="grid gap-4 grid-cols-2 lg:grid-cols-4"
       >
         {[
-          { title: "الصفوف الدراسية", value: stats.totalClasses, info: `${stats.totalClasses} صف نشط حالياً`, icon: <School className="h-5 w-5 text-indigo-500" />, fill: stats.occupancyRate, fillText: `${stats.occupancyRate}% إشغال` },
-          { title: "المعلمون", value: stats.totalTeachers, info: `نسبة التوزيع 1:${stats.teacherStudentRatio}`, icon: <UserCheck className="h-5 w-5 text-emerald-500" /> },
-          { title: "الطلاب المسجلون", value: stats.totalStudents, info: `متوسط ${stats.avgStudentsPerClass} طالباً / صف`, icon: <Users className="h-5 w-5 text-blue-500" />, label: recentStudents.length > 0 ? `+${recentStudents.length} جديد هذا الأسبوع` : "لا يوجد طلاب جدد" },
-          { title: "المواد والملفات", value: stats.totalFiles, info: `${stats.totalScheduleItems} حصة بالجدول`, icon: <FileText className="h-5 w-5 text-amber-500" /> },
+          { title: d.classesStat,  value: stats.totalClasses,  sub: `${stats.totalClasses} ${d.activeClassesSub}`,                          icon: <School className="h-4 w-4" />,   iconBg: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",   accent: "border-t-violet-500",  href: "/dashboard/classes"  },
+          { title: d.teachersStat, value: stats.totalTeachers, sub: `${d.ratioSub} 1:${stats.teacherStudentRatio}`,                          icon: <UserCheck className="h-4 w-4" />, iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400", accent: "border-t-emerald-500", href: "/dashboard/teachers" },
+          { title: d.studentsStat, value: stats.totalStudents, sub: `${d.avgPerClassSub} ${stats.avgStudentsPerClass} ${d.perClass}`,          icon: <Users className="h-4 w-4" />,    iconBg: "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400",               accent: "border-t-sky-500",    href: "/dashboard/students" },
+          { title: d.filesStat,    value: stats.totalFiles,    sub: `${stats.totalScheduleItems} ${d.scheduledSub}`,                          icon: <FileText className="h-4 w-4" />,  iconBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",         accent: "border-t-amber-500",  href: "/dashboard/files"    },
         ].map((card, idx) => (
-          <Card key={idx} className="border-slate-100 bg-white shadow-sm shadow-slate-100/40 relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500">{card.title}</span>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50">
+          <Link key={idx} href={card.href}>
+            <Card className={`border-border bg-card shadow-sm relative overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer border-t-4 ${card.accent}`}>
+              <CardContent className="p-4">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl mb-3 ${card.iconBg}`}>
                   {card.icon}
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-black text-slate-900">{card.value}</div>
-              
-              {card.fill !== undefined ? (
-                <div className="mt-2.5 space-y-1">
-                  <div className="flex justify-between text-[9px] font-semibold text-slate-400">
-                    <span>{card.fillText}</span>
-                  </div>
-                  <Progress value={card.fill} className="h-1 bg-slate-100 text-indigo-500" />
-                </div>
-              ) : (
-                <p className="text-[10px] text-slate-450 mt-2 font-medium">
-                  {card.label || card.info}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                <div className="text-2xl font-black text-foreground leading-none">{card.value}</div>
+                <p className="text-xs font-semibold text-foreground/70 mt-1.5">{card.title}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{card.sub}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </motion.div>
 
@@ -259,16 +215,16 @@ export default function DashboardPage() {
         className="grid gap-5 lg:grid-cols-3"
       >
         {/* School Occupancy and stats overview */}
-        <Card className="border-slate-150 bg-white shadow-sm shadow-slate-100/40 lg:col-span-2">
-          <CardHeader className="pb-3 border-b border-slate-50">
+        <Card className="border-border bg-card shadow-sm lg:col-span-2">
+          <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm sm:text-base font-bold text-slate-900">أداء وإحصاءات المدرسة</CardTitle>
-                <CardDescription className="text-xs">المعدلات الحالية للمجموعات الدراسية</CardDescription>
+                <CardTitle className="text-sm sm:text-base font-bold text-foreground">{d.schoolPerformance}</CardTitle>
+                <CardDescription className="text-xs">{d.schoolMetrics}</CardDescription>
               </div>
-              <Badge variant="outline" className="bg-emerald-50 border-emerald-100 text-emerald-700 font-bold text-[10px]">
-                <Activity className="ml-1 h-3 w-3 animate-pulse" />
-                نشط
+              <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400 font-bold text-[10px]">
+                <Activity className="me-1 h-3 w-3 animate-pulse" />
+                {d.activeBadge}
               </Badge>
             </div>
           </CardHeader>
@@ -276,42 +232,42 @@ export default function DashboardPage() {
             {/* Occupancy Progress */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-slate-600">نسبة استيعاب الطلاب الكلية</span>
-                <span className="text-slate-900">{stats.occupancyRate}%</span>
+                <span className="text-foreground/70">{d.totalCapacity}</span>
+                <span className="text-foreground">{stats.occupancyRate}%</span>
               </div>
-              <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-l from-indigo-500 to-indigo-650 rounded-full transition-all duration-700"
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-700"
                   style={{ width: `${stats.occupancyRate}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-450">
-                تسجيل {stats.totalStudents} طالباً من أصل {stats.totalClasses * 30} مقعداً إجمالياً (بمعدل 30 طالباً للقسم الواحد).
+              <p className="text-[10px] text-muted-foreground">
+                {d.enrolled} {stats.totalStudents} {d.student} {d.outOf} {stats.totalClasses * 30} {d.totalSeats} ({d.seatsNote}).
               </p>
             </div>
 
             {/* Sub-grid of indicators */}
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-              <div className="flex items-center gap-3 bg-slate-50/50 border border-slate-100 rounded-xl p-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 flex-shrink-0">
+              <div className="flex items-center gap-3 bg-muted/40 border border-border/60 rounded-xl p-3.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary flex-shrink-0">
                   <Users className="h-5 w-5" />
                 </div>
-                <div className="min-w-0 text-right">
-                  <span className="text-[10px] text-slate-400 block font-semibold">معدل الطلاب لكل معلم</span>
-                  <span className="text-sm font-bold text-slate-800">
-                    {stats.totalTeachers > 0 ? (stats.totalStudents / stats.totalTeachers).toFixed(1) : 0} طالباً
+                <div className={`min-w-0 ${language === "ar" ? "text-right" : "text-left"}`}>
+                  <span className="text-[10px] text-muted-foreground block font-semibold">{d.studentsPerTeacher}</span>
+                  <span className="text-sm font-bold text-foreground">
+                    {stats.totalTeachers > 0 ? (stats.totalStudents / stats.totalTeachers).toFixed(1) : 0} {d.student}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-slate-50/50 border border-slate-100 rounded-xl p-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 flex-shrink-0">
+              <div className="flex items-center gap-3 bg-muted/40 border border-border/60 rounded-xl p-3.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
                   <Calendar className="h-5 w-5" />
                 </div>
-                <div className="min-w-0 text-right">
-                  <span className="text-[10px] text-slate-400 block font-semibold">الحصص الدراسية المضافة</span>
-                  <span className="text-sm font-bold text-slate-800">
-                    {stats.totalScheduleItems} حصص نشطة
+                <div className={`min-w-0 ${language === "ar" ? "text-right" : "text-left"}`}>
+                  <span className="text-[10px] text-muted-foreground block font-semibold">{d.activePeriods}</span>
+                  <span className="text-sm font-bold text-foreground">
+                    {stats.totalScheduleItems} {d.activePeriodsSuffix}
                   </span>
                 </div>
               </div>
@@ -320,28 +276,28 @@ export default function DashboardPage() {
         </Card>
 
         {/* Quick Actions Panel */}
-        <Card className="border-slate-150 bg-white shadow-sm shadow-slate-100/40">
-          <CardHeader className="pb-3 border-b border-slate-50">
-            <CardTitle className="text-sm sm:text-base font-bold text-slate-900">لوحة الإجراءات السريعة</CardTitle>
-            <CardDescription className="text-xs">الوصول المباشر لوظائف النظام</CardDescription>
+        <Card className="border-border bg-card shadow-sm">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm sm:text-base font-bold text-foreground">{d.quickActions}</CardTitle>
+            <CardDescription className="text-xs">{d.directAccess}</CardDescription>
           </CardHeader>
           <CardContent className="pt-4 space-y-2.5">
             {[
-              { label: "إضافة صف دراسي جديد", desc: "فتح قسم أو مرحلة جديدة", href: "/dashboard/classes?action=add", bg: "hover:bg-indigo-50/40 hover:border-indigo-150", iconBg: "bg-indigo-500/10 text-indigo-500" },
-              { label: "إضافة معلم جديد", desc: "تسجيل حساب وتخصص لمعلم", href: "/dashboard/teachers?action=add", bg: "hover:bg-emerald-50/40 hover:border-emerald-150", iconBg: "bg-emerald-500/10 text-emerald-500" },
-              { label: "إضافة طالب جديد", desc: "تسكين طالب في صف دراسي", href: "/dashboard/students?action=add", bg: "hover:bg-blue-50/40 hover:border-blue-150", iconBg: "bg-blue-500/10 text-blue-500" },
-              { label: "رفع ملف تعليمي جديد", desc: "مشاركة أوراق العمل والمواد", href: "/dashboard/files", bg: "hover:bg-amber-50/40 hover:border-amber-150", iconBg: "bg-amber-500/10 text-amber-500" },
+              { label: d.addNewClass,   desc: d.addNewClassDesc,   href: "/dashboard/classes?action=add",  bg: "hover:bg-primary/5 hover:border-primary/20",      iconBg: "bg-primary/10 text-primary" },
+              { label: d.addNewTeacher, desc: d.addNewTeacherDesc, href: "/dashboard/teachers?action=add", bg: "hover:bg-emerald-50/60 hover:border-emerald-100 dark:hover:bg-emerald-950/20", iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+              { label: d.addNewStudent, desc: d.addNewStudentDesc, href: "/dashboard/students?action=add", bg: "hover:bg-sky-50/60 hover:border-sky-100 dark:hover:bg-sky-950/20",         iconBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },
+              { label: d.uploadFile,    desc: d.uploadFileDesc,    href: "/dashboard/files",                bg: "hover:bg-amber-50/60 hover:border-amber-100 dark:hover:bg-amber-950/20",   iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
             ].map((action, i) => (
               <Link key={i} href={action.href} className="block group">
-                <div className={`flex items-center gap-3.5 border border-slate-100 rounded-xl p-3 transition-all duration-205 ${action.bg}`}>
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0 group-hover:scale-105 transition-transform ${action.iconBg}`}>
-                    <Plus className="h-4.5 w-4.5" />
+                <div className={`flex items-center gap-3.5 border border-border/60 rounded-xl p-3 transition-all duration-200 ${action.bg}`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl flex-shrink-0 group-hover:scale-105 transition-transform ${action.iconBg}`}>
+                    <Plus className="h-4 w-4" />
                   </div>
-                  <div className="flex-1 min-w-0 text-right">
-                    <p className="font-bold text-slate-800 text-xs sm:text-sm">{action.label}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{action.desc}</p>
+                  <div className={`flex-1 min-w-0 ${language === "ar" ? "text-right" : "text-left"}`}>
+                    <p className="font-bold text-foreground text-xs sm:text-sm">{action.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{action.desc}</p>
                   </div>
-                  <ChevronLeft className="h-4 w-4 text-slate-350 group-hover:-translate-x-0.5 transition-transform" />
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:-translate-x-0.5 transition-transform" />
                 </div>
               </Link>
             ))}
@@ -355,17 +311,17 @@ export default function DashboardPage() {
         className="grid gap-5 lg:grid-cols-2"
       >
         {/* Recent Classes Card */}
-        <Card className="border-slate-150 bg-white shadow-sm shadow-slate-100/40 overflow-hidden">
-          <CardHeader className="pb-3 border-b border-slate-50 bg-slate-50/30">
+        <Card className="border-border bg-card shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4.5 w-4.5 text-indigo-500" />
-                <CardTitle className="text-sm sm:text-base font-bold text-slate-900">الصفوف الدراسية الأخيرة</CardTitle>
+                <BookOpen className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm sm:text-base font-bold text-foreground">{d.recentClasses}</CardTitle>
               </div>
-              <Button asChild variant="ghost" size="sm" className="h-8 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700">
+              <Button asChild variant="ghost" size="sm" className="h-8 text-xs font-bold text-primary hover:bg-primary/5">
                 <Link href="/dashboard/classes">
-                  عرض الكل
-                  <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                  {d.viewAll}
+                  <ArrowLeft className="ms-0 me-1 h-3.5 w-3.5" />
                 </Link>
               </Button>
             </div>
@@ -373,32 +329,32 @@ export default function DashboardPage() {
           <CardContent className="p-0">
             {classes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <BookOpen className="h-10 w-10 text-slate-300 mb-2" />
-                <p className="text-xs text-slate-550 font-bold">لا توجد صفوف دراسية حالياً</p>
+                <BookOpen className="h-10 w-10 text-muted-foreground/20 mb-2" />
+                <p className="text-xs text-muted-foreground font-semibold">{d.noClassesYet}</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-border/30">
                 {classes.slice(0, 4).map((cls, index) => {
                   const studentCount = students.filter(s => s.classId === cls.id).length
                   const fillPercentage = Math.min((studentCount / 30) * 100, 100)
                   return (
-                    <div key={cls.id} className="flex items-center justify-between p-4 transition-colors hover:bg-slate-50/50">
+                    <div key={cls.id} className="flex items-center justify-between p-4 transition-colors hover:bg-muted/30">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500 font-extrabold text-xs flex-shrink-0">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary font-extrabold text-xs flex-shrink-0">
                           {index + 1}
                         </div>
-                        <div className="min-w-0 text-right">
-                          <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{cls.name}</p>
+                        <div className={`min-w-0 ${language === "ar" ? "text-right" : "text-left"}`}>
+                          <p className="font-bold text-foreground text-xs sm:text-sm truncate">{cls.name}</p>
                           <div className="mt-1 flex items-center gap-2">
-                            <div className="h-1 w-16 rounded-full bg-slate-100 overflow-hidden">
-                              <div className="h-full bg-indigo-500" style={{ width: `${fillPercentage}%` }} />
+                            <div className="h-1 w-16 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full bg-primary" style={{ width: `${fillPercentage}%` }} />
                             </div>
-                            <span className="text-[10px] text-slate-400 font-semibold">{studentCount} طالباً</span>
+                            <span className="text-[10px] text-muted-foreground font-semibold">{studentCount} {d.students}</span>
                           </div>
                         </div>
                       </div>
-                      <Badge variant="outline" className="bg-slate-50 border-slate-200/80 text-slate-650 font-bold text-[10px] rounded-lg">
-                        {studentCount} / 30 مقعد
+                      <Badge variant="outline" className="bg-muted/50 border-border text-foreground/70 font-bold text-[10px] rounded-lg">
+                        {studentCount} / 30
                       </Badge>
                     </div>
                   )
@@ -409,17 +365,17 @@ export default function DashboardPage() {
         </Card>
 
         {/* Recent Teachers Card */}
-        <Card className="border-slate-150 bg-white shadow-sm shadow-slate-100/40 overflow-hidden">
-          <CardHeader className="pb-3 border-b border-slate-50 bg-slate-50/30">
+        <Card className="border-border bg-card shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCheck className="h-4.5 w-4.5 text-emerald-500" />
-                <CardTitle className="text-sm sm:text-base font-bold text-slate-900">أحدث المعلمين</CardTitle>
+                <UserCheck className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                <CardTitle className="text-sm sm:text-base font-bold text-foreground">{d.recentTeachers}</CardTitle>
               </div>
-              <Button asChild variant="ghost" size="sm" className="h-8 text-xs font-bold text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
+              <Button asChild variant="ghost" size="sm" className="h-8 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
                 <Link href="/dashboard/teachers">
-                  عرض الكل
-                  <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                  {d.viewAll}
+                  <ArrowLeft className="ms-0 me-1 h-3.5 w-3.5" />
                 </Link>
               </Button>
             </div>
@@ -427,31 +383,31 @@ export default function DashboardPage() {
           <CardContent className="p-0">
             {teachers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <UserCheck className="h-10 w-10 text-slate-300 mb-2" />
-                <p className="text-xs text-slate-550 font-bold">لا يوجد معلمون مسجلون بعد</p>
+                <UserCheck className="h-10 w-10 text-muted-foreground/20 mb-2" />
+                <p className="text-xs text-muted-foreground font-semibold">{d.noTeachersYet}</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-border/30">
                 {teachers.slice(0, 4).map((teacher) => (
-                  <div key={teacher.id} className="flex items-center justify-between p-4 transition-colors hover:bg-slate-50/50">
+                  <div key={teacher.id} className="flex items-center justify-between p-4 transition-colors hover:bg-muted/30">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="h-9 w-9 border border-emerald-100">
-                        <AvatarFallback className="bg-emerald-50 text-emerald-600 font-bold text-xs">
-                          {teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                      <Avatar className="h-9 w-9 border border-emerald-100 dark:border-emerald-900">
+                        <AvatarFallback className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                          {teacher.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="min-w-0 text-right">
-                        <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{teacher.name}</p>
-                        <p className="text-[10px] text-slate-400 font-semibold">{teacher.phone || "بدون رقم هاتف"}</p>
+                      <div className={`min-w-0 ${language === "ar" ? "text-right" : "text-left"}`}>
+                        <p className="font-bold text-foreground text-xs sm:text-sm truncate">{teacher.name}</p>
+                        <p className="text-[10px] text-muted-foreground font-semibold">{teacher.phone || d.noPhone}</p>
                       </div>
                     </div>
                     {teacher.subject ? (
-                      <Badge className="bg-emerald-50 hover:bg-emerald-50 border-emerald-100 text-emerald-700 font-bold text-[10px] rounded-lg">
+                      <Badge className="bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-50 border-emerald-100 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] rounded-full">
                         {teacher.subject}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="font-bold text-[10px] rounded-lg text-slate-500">
-                        غير محدد
+                      <Badge variant="secondary" className="font-bold text-[10px] rounded-full text-muted-foreground">
+                        {d.noSubject}
                       </Badge>
                     )}
                   </div>
@@ -464,3 +420,4 @@ export default function DashboardPage() {
     </motion.div>
   )
 }
+

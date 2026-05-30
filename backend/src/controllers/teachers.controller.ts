@@ -57,6 +57,64 @@ export class TeachersController {
     }
   }
 
+  // --- Admin Teacher Account Management ---
+
+  static async getAccounts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const accounts = await TeachersService.getTeacherAccounts();
+      return sendSuccess(res, accounts, "Teacher accounts fetched successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const account = await TeachersService.createTeacherAccount(req.body);
+      return sendSuccess(res, account, "Teacher account created successfully", 201);
+    } catch (error: any) {
+      console.error("[createAccount] error:", error?.message || error, "body:", req.body);
+      next(error);
+    }
+  }
+
+  static async updateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const account = await TeachersService.updateTeacherAccount(req.params.id, req.body);
+      return sendSuccess(res, account, "Teacher account updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      await TeachersService.deleteTeacherAccount(req.params.id);
+      return sendSuccess(res, null, "Teacher account deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async toggleStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const account = await TeachersService.toggleTeacherStatus(req.params.id);
+      return sendSuccess(res, account, "Teacher status updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { password } = req.body;
+      await TeachersService.resetTeacherPassword(req.params.id, password);
+      return sendSuccess(res, null, "Password reset successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // --- Assignments ---
 
   static async getAllAssignments(req: Request, res: Response, next: NextFunction) {

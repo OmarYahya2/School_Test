@@ -1,10 +1,20 @@
 import { Request } from "express";
 
+export interface TokenUser {
+  id: string;
+  email: string;
+  role: string;
+  name: string;
+  teacherId?: string;
+}
+
 export interface RequestWithUser extends Request {
-  user?: {
+  user?: TokenUser;
+  teacher?: {
     id: string;
-    email: string;
-    role: string;
     name: string;
+    email: string | null;
+    isActive: boolean;
+    assignedSubjects: string[];
   };
 }

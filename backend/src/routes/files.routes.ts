@@ -2,7 +2,7 @@ import { Router } from "express";
 import { FilesController } from "../controllers/files.controller";
 import { fileValidator } from "../validators/file.validator";
 import { validate } from "../middleware/validate.middleware";
-import { authenticate } from "../middleware/auth.middleware";
+import { authenticate, injectTeacher, requireAdmin, requireAdminOrActiveTeacher } from "../middleware/auth.middleware";
 import { upload } from "../middleware/upload.middleware";
 import { rateLimit } from "../middleware/rate-limit.middleware";
 
@@ -15,14 +15,16 @@ const fileLimiter = rateLimit({
   keyPrefix: "files",
 });
 
-// Public reads
-router.get("/", FilesController.getAll);
-router.get("/filter", FilesController.getFiltered);
+const publicLimiter = rateLimit({ windowMs: 60 * 1000, maxHits: 300, keyPrefix: "files-pub" });
 
-// Protected uploads and modifications
 router.use(authenticate);
-router.post("/upload", fileLimiter, upload.single("file"), FilesController.upload);
-router.post("/", fileLimiter, fileValidator, validate, FilesController.create);
-router.delete("/:id", FilesController.delete);
+router.use(injectTeacher);
+
+router.get("/", publicLimiter, FilesController.getAll);
+router.get("/filter", publicLimiter, FilesController.getFiltered);
+
+router.post("/upload", requireAdminOrActiveTeacher, fileLimiter, upload.single("file"), FilesController.upload);
+router.post("/", requireAdminOrActiveTeacher, fileLimiter, fileValidator, validate, FilesController.create);
+router.delete("/:id", requireAdminOrActiveTeacher, FilesController.delete);
 
 export default router;

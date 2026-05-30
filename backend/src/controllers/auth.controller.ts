@@ -34,6 +34,18 @@ export class AuthController {
     }
   }
 
+  static async updateMe(req: RequestWithUser, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+      const updated = await AuthService.updateProfile(req.user.id, req.body);
+      return sendSuccess(res, updated, "Profile updated successfully", 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async refresh(req: Request, res: Response, next: NextFunction) {
     try {
       const { refreshToken } = req.body;

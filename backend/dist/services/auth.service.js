@@ -49,6 +49,7 @@ class AuthService {
             email: user.email,
             role: user.role,
             name: user.name,
+            teacherId: user.teacherId || undefined,
         };
         const token = (0, jwt_utils_1.generateToken)(tokenPayload);
         const refreshToken = (0, jwt_utils_1.generateRefreshToken)(tokenPayload);
@@ -67,6 +68,7 @@ class AuthService {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                teacherId: user.teacherId || undefined,
             },
         };
     }
@@ -78,15 +80,41 @@ class AuthService {
         if (!user) {
             throw { status: 400, message: "Invalid email or password" };
         }
-        const isMatch = await (0, password_utils_1.comparePasswords)(password, user.password);
+        let isMatch = await (0, password_utils_1.comparePasswords)(password, user.password);
+        // Fallback: if password is stored in plain text (not a bcrypt hash), compare directly
+        // and re-hash it automatically for next login
+        if (!isMatch && !user.password.startsWith("$2")) {
+            if (user.password === password) {
+                const hashed = await (0, password_utils_1.hashPassword)(password);
+                await prisma_1.prisma.user.update({
+                    where: { id: user.id },
+                    data: { password: hashed },
+                });
+                isMatch = true;
+            }
+        }
         if (!isMatch) {
             throw { status: 400, message: "Invalid email or password" };
+        }
+        // If user is a teacher, verify their teacher profile is active
+        if (user.role === "teacher" && user.teacherId) {
+            const teacher = await prisma_1.prisma.teacher.findUnique({
+                where: { id: user.teacherId },
+                select: { isActive: true },
+            });
+            if (!teacher) {
+                throw { status: 403, message: "Teacher profile not found" };
+            }
+            if (!teacher.isActive) {
+                throw { status: 403, message: "Account deactivated. Contact your administrator." };
+            }
         }
         const tokenPayload = {
             id: user.id,
             email: user.email,
             role: user.role,
             name: user.name,
+            teacherId: user.teacherId || undefined,
         };
         const token = (0, jwt_utils_1.generateToken)(tokenPayload);
         const refreshToken = (0, jwt_utils_1.generateRefreshToken)(tokenPayload);
@@ -105,6 +133,7 @@ class AuthService {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                teacherId: user.teacherId || undefined,
             },
         };
     }
@@ -138,6 +167,7 @@ class AuthService {
             email: user.email,
             role: user.role,
             name: user.name,
+            teacherId: user.teacherId || undefined,
         };
         const newToken = (0, jwt_utils_1.generateToken)(tokenPayload);
         const newRefreshToken = (0, jwt_utils_1.generateRefreshToken)(tokenPayload);
@@ -156,6 +186,7 @@ class AuthService {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                teacherId: user.teacherId || undefined,
             },
         };
     }
@@ -169,6 +200,21 @@ class AuthService {
             data: { revokedAt: new Date() },
         });
     }
+    static async updateProfile(id, data) {
+        const { name, email } = data;
+        if (email) {
+            const existing = await prisma_1.prisma.user.findUnique({ where: { email } });
+            if (existing && existing.id !== id) {
+                throw { status: 400, message: "Email is already in use" };
+            }
+        }
+        const updated = await prisma_1.prisma.user.update({
+            where: { id },
+            data: { ...(name && { name }), ...(email && { email }) },
+            select: { id: true, name: true, email: true, role: true, createdAt: true },
+        });
+        return updated;
+    }
     static async getUserById(id) {
         const user = await prisma_1.prisma.user.findUnique({
             where: { id },
@@ -177,6 +223,7 @@ class AuthService {
                 name: true,
                 email: true,
                 role: true,
+                teacherId: true,
                 createdAt: true,
             },
         });

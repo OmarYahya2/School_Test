@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -54,18 +55,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import type { SchoolClass, Student, Teacher } from "@/lib/store"
-import type { AttendanceWithNames } from "@/lib/supabase-school"
 import {
-  fetchClassById,
-  fetchStudentsByClass,
   createStudent,
   deleteStudentById,
-  fetchAttendanceByClass,
   saveAttendanceRecord,
   updateStudentById,
 } from "@/lib/supabase-school"
-import { fetchTeachers } from "@/lib/supabase-teachers"
-import { motion, AnimatePresence } from "framer-motion"
+import { useAdminClass, useAdminStudentsByClass, useAdminTeachers, useAdminAttendanceByClass } from "@/lib/hooks/use-admin-data"
+import { SkeletonTable } from "@/components/skeletons"
+import { motion, AnimatePresence, type Variants } from "framer-motion"
 
 type Note = {
   id: string
@@ -76,7 +74,13 @@ type Note = {
   author?: string
 }
 
-const containerVariants = {
+let noteIdCounter = 0
+function stableNoteId(): string {
+  noteIdCounter += 1
+  return `note-${noteIdCounter}`
+}
+
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -84,7 +88,7 @@ const containerVariants = {
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } },
 }
@@ -94,12 +98,13 @@ export default function ClassDetailPage() {
   const router = useRouter()
   const classId = params.id as string
 
-  const [cls, setCls] = useState<SchoolClass | null>(null)
-  const [students, setStudents] = useState<Student[]>([])
-  const [teacher, setTeacher] = useState<Teacher | null>(null)
-  const [attendance, setAttendance] = useState<AttendanceWithNames[]>([])
+  const queryClient = useQueryClient()
+  const { data: cls, isLoading: classLoading } = useAdminClass(classId)
+  const { data: students = [], isLoading: studentsLoading } = useAdminStudentsByClass(classId)
+  const { data: teachers = [] } = useAdminTeachers()
+  const { data: attendance = [] } = useAdminAttendanceByClass(classId)
+  const loading = classLoading || studentsLoading
   const [addOpen, setAddOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   // New student form
   const [newName, setNewName] = useState("")
@@ -125,7 +130,7 @@ export default function ClassDetailPage() {
   const [newNoteContent, setNewNoteContent] = useState("")
   const [newNoteCategory, setNewNoteCategory] = useState<Note["category"]>("general")
 
-  const parseNotes = (notesString: string): Note[] => {
+  const parseNotes = useCallback((notesString: string): Note[] => {
     if (!notesString) return []
     try {
       const parsed = JSON.parse(notesString)
@@ -133,41 +138,34 @@ export default function ClassDetailPage() {
         const seen = new Set<string>()
         return parsed.map((note: Note) => {
           let uniqueId = note.id
-          if (seen.has(note.id)) {
-            uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 5)}`
+          if (!uniqueId || seen.has(uniqueId)) {
+            uniqueId = stableNoteId()
           }
           seen.add(uniqueId)
-          return {
-            ...note,
-            id: uniqueId,
-          }
+          return { ...note, id: uniqueId }
         })
       }
       if (typeof parsed === "string" && parsed.trim()) {
-        return [
-          {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            content: parsed,
-            createdAt: new Date().toISOString(),
-            category: "general",
-          },
-        ]
+        return [{
+          id: stableNoteId(),
+          content: parsed,
+          createdAt: new Date().toISOString(),
+          category: "general",
+        }]
       }
       return []
     } catch {
       if (notesString.trim()) {
-        return [
-          {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            content: notesString,
-            createdAt: new Date().toISOString(),
-            category: "general",
-          },
-        ]
+        return [{
+          id: stableNoteId(),
+          content: notesString,
+          createdAt: new Date().toISOString(),
+          category: "general",
+        }]
       }
       return []
     }
-  }
+  }, [])
 
   const saveNotes = async (student: Student, updatedNotes: Note[]) => {
     try {
@@ -249,13 +247,13 @@ export default function ClassDetailPage() {
   const getCategoryColor = (category?: string) => {
     switch (category) {
       case "academic":
-        return "bg-indigo-50 text-indigo-700 border-indigo-200"
+        return "bg-violet-50 text-violet-700 border-violet-200"
       case "behavioral":
         return "bg-amber-50 text-amber-700 border-amber-200"
       case "health":
-        return "bg-rose-55 text-rose-700 border-rose-200"
+        return "bg-rose-50 text-rose-700 border-rose-200"
       default:
-        return "bg-slate-50 text-slate-700 border-slate-200"
+        return "bg-muted text-foreground border-border"
     }
   }
 
@@ -276,46 +274,39 @@ export default function ClassDetailPage() {
     return parseNotes(student.notes || "").length
   }
 
-  const reload = useCallback(async () => {
-    try {
-      const found = await fetchClassById(classId)
-      if (!found) {
-        router.push("/dashboard/classes")
-        return
-      }
-      setCls(found)
-      const studs = await fetchStudentsByClass(classId)
-      setStudents(studs)
-      const teachers = await fetchTeachers()
-      setTeacher(found.teacherId ? teachers.find((t) => t.id === found.teacherId) || null : null)
-      const att = await fetchAttendanceByClass(classId)
-      setAttendance(att)
+  const teacher = useMemo(() => {
+    if (!cls?.teacherId) return null
+    return teachers.find((t) => t.id === cls.teacherId) || null
+  }, [cls, teachers])
 
-      // Load attendance for selected date
-      const existing = att.find((a) => a.date === attendanceDate)
-      if (existing) {
-        const map: Record<string, boolean> = {}
-        existing.records.forEach((r) => {
-          map[r.studentId] = r.present
-        })
-        setAttendanceMap(map)
-      } else {
-        const map: Record<string, boolean> = {}
-        studs.forEach((s) => {
-          map[s.id] = true
-        })
-        setAttendanceMap(map)
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [classId, router, attendanceDate])
-
+  // Load attendance for selected date
   useEffect(() => {
-    void reload()
-  }, [reload])
+    const existing = attendance.find((a: any) => a.date === attendanceDate)
+    const map: Record<string, boolean> = {}
+    if (existing) {
+      existing.records.forEach((r: any) => {
+        map[r.studentId] = r.present
+      })
+    } else {
+      students.forEach((s) => {
+        map[s.id] = true
+      })
+    }
+    // Only update state if keys or values differ to prevent infinite loops
+    const currentKeys = Object.keys(attendanceMap)
+    const newKeys = Object.keys(map)
+    const hasChanged = currentKeys.length !== newKeys.length || newKeys.some((k) => attendanceMap[k] !== map[k])
+    if (hasChanged) {
+      setAttendanceMap(map)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendance, attendanceDate, students])
+
+  const reload = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "class", classId] })
+    queryClient.invalidateQueries({ queryKey: ["admin", "students", "class", classId] })
+    queryClient.invalidateQueries({ queryKey: ["admin", "attendance", "class", classId] })
+  }, [queryClient, classId])
 
   async function handleAddStudent() {
     if (!newName.trim()) {
@@ -378,8 +369,8 @@ export default function ClassDetailPage() {
     return (
       <div className="flex h-72 items-center justify-center">
         <div className="relative h-12 w-12">
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin" />
+          <div className="absolute inset-0 rounded-full border-4 border-violet-100" />
+          <div className="absolute inset-0 rounded-full border-4 border-violet-600 border-t-transparent animate-spin" />
         </div>
       </div>
     )
@@ -409,14 +400,14 @@ export default function ClassDetailPage() {
             asChild
             variant="outline"
             size="sm"
-            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl"
+            className="bg-card border-border text-card-foreground hover:bg-muted/50 rounded-xl"
           >
             <Link href="/dashboard/classes" className="flex items-center gap-1">
               <ArrowLeft className="h-4 w-4 ml-1" />
               <span>العودة للصفوف</span>
             </Link>
           </Button>
-          <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-50 rounded-lg py-1 px-2.5">
+          <Badge className="bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-50 rounded-lg py-1 px-2.5">
             <GraduationCap className="ml-1 h-3.5 w-3.5" />
             <span>تفاصيل الصف</span>
           </Badge>
@@ -424,41 +415,41 @@ export default function ClassDetailPage() {
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-none">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="بحث عن طالب بالاسم..."
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              className="w-full sm:w-64 pr-9 bg-white border-slate-200 focus:border-indigo-500 rounded-xl h-10"
+              className="w-full sm:w-64 pr-9 bg-background border-border focus:border-primary rounded-xl h-10"
             />
           </div>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button className="h-10 bg-gradient-to-r from-indigo-650 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/10 border-0 flex items-center gap-1.5">
+              <Button className="h-10 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-xl font-bold shadow-md shadow-violet-500/10 border-0 flex items-center gap-1.5">
                 <Plus className="h-4.5 w-4.5" />
                 <span>إضافة طالب</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-md">
+            <DialogContent className="text-right bg-card border-border rounded-2xl max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-violet-500" />
                   إضافة طالب جديد للصف
                 </DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 pt-2">
                 <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-bold text-xs sm:text-sm">اسم الطالب</Label>
+                  <Label className="text-foreground font-bold text-xs sm:text-sm">اسم الطالب</Label>
                   <Input
                     placeholder="الاسم الكامل للطالب"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="bg-slate-50/50 border-slate-200 focus:border-indigo-500 rounded-xl h-10 text-slate-800"
+                    className="bg-muted/50 border-border focus:border-primary rounded-xl h-10 text-foreground"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-slate-700 font-bold text-xs sm:text-sm">العمر</Label>
+                    <Label className="text-foreground font-bold text-xs sm:text-sm">العمر</Label>
                     <Input
                       type="number"
                       placeholder="العمر"
@@ -466,39 +457,39 @@ export default function ClassDetailPage() {
                       onChange={(e) => setNewAge(e.target.value)}
                       min={3}
                       max={25}
-                      className="bg-slate-55/50 border-slate-200 focus:border-indigo-500 rounded-xl h-10 text-slate-850"
+                      className="bg-muted/50 border-border focus:border-primary rounded-xl h-10 text-foreground"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-slate-700 font-bold text-xs sm:text-sm">هاتف ولي الأمر</Label>
+                    <Label className="text-foreground font-bold text-xs sm:text-sm">هاتف ولي الأمر</Label>
                     <Input
                       placeholder="رقم الهاتف"
                       value={newParentPhone}
                       onChange={(e) => setNewParentPhone(e.target.value)}
-                      className="bg-slate-55/50 border-slate-200 focus:border-indigo-500 rounded-xl h-10 text-slate-850 text-left"
+                      className="bg-muted/50 border-border focus:border-primary rounded-xl h-10 text-foreground text-left"
                       dir="ltr"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-bold text-xs sm:text-sm">ملاحظات أولية</Label>
+                  <Label className="text-foreground font-bold text-xs sm:text-sm">ملاحظات أولية</Label>
                   <Textarea
                     placeholder="ملاحظات صحية أو دراسية خاصة بالطالب..."
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
                     rows={3}
-                    className="bg-slate-55/50 border-slate-200 focus:border-indigo-500 rounded-xl text-slate-850 resize-none"
+                    className="bg-muted/50 border-border focus:border-primary rounded-xl text-foreground resize-none"
                   />
                 </div>
                 <div className="flex gap-2 justify-end pt-2">
                   <DialogClose asChild>
-                    <Button variant="outline" className="border-slate-250 rounded-xl h-10">
+                    <Button variant="outline" className="border-border rounded-xl h-10">
                       إلغاء
                     </Button>
                   </DialogClose>
                   <Button
                     onClick={handleAddStudent}
-                    className="bg-gradient-to-r from-indigo-550 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl h-10 px-5"
+                    className="bg-gradient-to-r from-violet-550 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-xl h-10 px-5"
                   >
                     إضافة الطالب
                   </Button>
@@ -511,34 +502,34 @@ export default function ClassDetailPage() {
 
       {/* Class Meta Card */}
       <motion.div variants={itemVariants}>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white overflow-hidden relative rounded-2xl">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-900 via-violet-950 to-slate-950 text-white overflow-hidden relative rounded-2xl">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
 
           <CardContent className="p-6 relative z-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner">
-                  <BookOpen className="h-8 w-8 text-indigo-200" />
+                  <BookOpen className="h-8 w-8 text-violet-200" />
                 </div>
                 <div>
                   <h1 className="text-2xl font-black tracking-tight">{cls.name}</h1>
-                  <p className="text-xs text-indigo-200 mt-1">الصف الدراسي والمجموعة التعليمية الحالية</p>
+                  <p className="text-xs text-violet-200 mt-1">الصف الدراسي والمجموعة التعليمية الحالية</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-6 flex-wrap md:justify-end">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 px-4 py-2 rounded-xl text-center">
-                  <span className="block text-xs text-indigo-305">عدد الطلاب</span>
+                  <span className="block text-xs text-violet-300">عدد الطلاب</span>
                   <span className="text-lg font-black">{students.length}</span>
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 px-4 py-2 rounded-xl text-center">
-                  <span className="block text-xs text-indigo-305">مربي الصف</span>
-                  <span className="text-lg font-black text-indigo-200">{teacher ? teacher.name : "غير معين"}</span>
+                  <span className="block text-xs text-violet-300">مربي الصف</span>
+                  <span className="text-lg font-black text-violet-200">{teacher ? teacher.name : "غير معين"}</span>
                 </div>
                 {students.length > 0 && (
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 px-4 py-2 rounded-xl text-center">
-                    <span className="block text-xs text-indigo-305">متوسط الأعمار</span>
+                    <span className="block text-xs text-violet-300">متوسط الأعمار</span>
                     <span className="text-lg font-black">
                       {Math.round(students.reduce((sum, s) => sum + s.age, 0) / students.length)} سنة
                     </span>
@@ -552,50 +543,50 @@ export default function ClassDetailPage() {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl hover:shadow-md transition-shadow">
+        <Card className="border border-border bg-card shadow-sm rounded-2xl hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="h-12 w-12 bg-indigo-50 text-indigo-650 rounded-xl flex items-center justify-center">
+            <div className="h-12 w-12 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center">
               <Users className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-2xl font-black text-slate-850">{students.length}</p>
-              <p className="text-xs font-semibold text-slate-400">إجمالي طلاب الصف</p>
+              <p className="text-2xl font-black text-foreground">{students.length}</p>
+              <p className="text-xs font-semibold text-muted-foreground">إجمالي طلاب الصف</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl hover:shadow-md transition-shadow">
+        <Card className="border border-border bg-card shadow-sm rounded-2xl hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
               <CheckCircle className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-2xl font-black text-slate-850">{todayPresentCount}</p>
-              <p className="text-xs font-semibold text-slate-400">الحضور اليوم</p>
+              <p className="text-2xl font-black text-foreground">{todayPresentCount}</p>
+              <p className="text-xs font-semibold text-muted-foreground">الحضور اليوم</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl hover:shadow-md transition-shadow">
+        <Card className="border border-border bg-card shadow-sm rounded-2xl hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="h-12 w-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
               <XCircle className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-2xl font-black text-slate-850">{todayAbsentCount}</p>
-              <p className="text-xs font-semibold text-slate-400">الغياب اليوم</p>
+              <p className="text-2xl font-black text-foreground">{todayAbsentCount}</p>
+              <p className="text-xs font-semibold text-muted-foreground">الغياب اليوم</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl hover:shadow-md transition-shadow">
+        <Card className="border border-border bg-card shadow-sm rounded-2xl hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="h-12 w-12 bg-purple-50 text-purple-650 rounded-xl flex items-center justify-center">
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-2xl font-black text-slate-850">{todayAttendanceRate}%</p>
-              <p className="text-xs font-semibold text-slate-400">معدل حضور اليوم</p>
+              <p className="text-2xl font-black text-foreground">{todayAttendanceRate}%</p>
+              <p className="text-xs font-semibold text-muted-foreground">معدل حضور اليوم</p>
             </div>
           </CardContent>
         </Card>
@@ -604,17 +595,17 @@ export default function ClassDetailPage() {
       {/* Tabs Layout */}
       <motion.div variants={itemVariants}>
         <Tabs defaultValue="students" className="w-full">
-          <TabsList className="bg-slate-100 border border-slate-200/60 p-1 rounded-xl mb-6">
+          <TabsList className="bg-muted border border-border/60 p-1 rounded-xl mb-6">
             <TabsTrigger
               value="students"
-              className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-650 data-[state=active]:shadow-sm px-5 py-2 font-bold transition-all text-sm gap-2"
+              className="rounded-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm px-5 py-2 font-bold transition-all text-sm gap-2"
             >
               <Users className="h-4 w-4" />
               <span>قائمة الطلاب ({students.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="attendance"
-              className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-650 data-[state=active]:shadow-sm px-5 py-2 font-bold transition-all text-sm gap-2"
+              className="rounded-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm px-5 py-2 font-bold transition-all text-sm gap-2"
             >
               <ClipboardCheck className="h-4 w-4" />
               <span>تسجيل الحضور والغياب</span>
@@ -623,18 +614,18 @@ export default function ClassDetailPage() {
 
           <TabsContent value="students" className="mt-0 outline-none">
             {students.length === 0 ? (
-              <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
+              <Card className="border border-border bg-card shadow-sm rounded-2xl">
                 <CardContent className="p-12 text-center">
-                  <div className="h-16 w-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="h-16 w-16 bg-muted text-muted-foreground rounded-full flex items-center justify-center mx-auto mb-4">
                     <Users className="h-8 w-8" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800">لا يوجد طلاب بالصف حالياً</h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-6">
+                  <h3 className="text-lg font-bold text-foreground">لا يوجد طلاب بالصف حالياً</h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto mb-6">
                     قم بإضافة الطلاب المسجلين بالصف الدراسي لبدء رصد الحضور وتسجيل درجاتهم وملاحظاتهم السلوكية.
                   </p>
                   <Button
                     onClick={() => setAddOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md px-6 h-10 border-0"
+                    className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-md px-6 h-10 border-0"
                   >
                     <Plus className="ml-1.5 h-4.5 w-4.5" />
                     <span>إضافة أول طالب</span>
@@ -642,20 +633,20 @@ export default function ClassDetailPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-right">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/50">
-                        <th className="px-6 py-4 font-bold text-slate-700 text-xs">اسم الطالب</th>
-                        <th className="px-6 py-4 font-bold text-slate-700 text-xs hidden sm:table-cell">العمر</th>
-                        <th className="px-6 py-4 font-bold text-slate-700 text-xs hidden md:table-cell">هاتف ولي الأمر</th>
-                        <th className="px-6 py-4 font-bold text-slate-700 text-xs hidden lg:table-cell">تاريخ التسجيل</th>
-                        <th className="px-6 py-4 font-bold text-slate-700 text-xs text-center w-32">الملاحظات</th>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="px-6 py-4 font-bold text-foreground text-xs">اسم الطالب</th>
+                        <th className="px-6 py-4 font-bold text-foreground text-xs hidden sm:table-cell">العمر</th>
+                        <th className="px-6 py-4 font-bold text-foreground text-xs hidden md:table-cell">هاتف ولي الأمر</th>
+                        <th className="px-6 py-4 font-bold text-foreground text-xs hidden lg:table-cell">تاريخ التسجيل</th>
+                        <th className="px-6 py-4 font-bold text-foreground text-xs text-center w-32">الملاحظات</th>
                         <th className="px-6 py-4 w-16"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-border">
                       <AnimatePresence mode="popLayout">
                         {students
                           .filter((student) =>
@@ -671,24 +662,24 @@ export default function ClassDetailPage() {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 key={student.id}
-                                className="hover:bg-slate-50/30 transition-colors group"
+                                className="hover:bg-muted/30 transition-colors group"
                               >
                                 <td className="px-6 py-4">
                                   <Link
                                     href={`/dashboard/student/${student.id}`}
-                                    className="font-bold text-slate-800 hover:text-indigo-650 flex items-center gap-2 group-hover:translate-x-[-4px] transition-transform duration-200"
+                                    className="font-bold text-foreground hover:text-violet-600 flex items-center gap-2 group-hover:translate-x-[-4px] transition-transform duration-200"
                                   >
-                                    <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-xs">
+                                    <div className="h-8 w-8 bg-violet-50 text-violet-600 rounded-lg flex items-center justify-center font-bold text-xs">
                                       {student.name.substring(0, 1)}
                                     </div>
                                     <span>{student.name}</span>
                                   </Link>
                                 </td>
-                                <td className="px-6 py-4 text-slate-500 hidden sm:table-cell">{student.age} سنة</td>
-                                <td className="px-6 py-4 text-slate-500 hidden md:table-cell font-mono" dir="ltr">
+                                <td className="px-6 py-4 text-muted-foreground hidden sm:table-cell">{student.age} سنة</td>
+                                <td className="px-6 py-4 text-muted-foreground hidden md:table-cell font-mono" dir="ltr">
                                   {student.parentPhone || "—"}
                                 </td>
-                                <td className="px-6 py-4 text-slate-500 hidden lg:table-cell">
+                                <td className="px-6 py-4 text-muted-foreground hidden lg:table-cell">
                                   {new Date(student.createdAt).toLocaleDateString("ar-EG", {
                                     year: "numeric",
                                     month: "long",
@@ -701,7 +692,7 @@ export default function ClassDetailPage() {
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                                       notesCount > 0
                                         ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200"
-                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100 border-slate-200"
+                                        : "bg-muted text-muted-foreground hover:bg-muted border-border"
                                     }`}
                                   >
                                     <StickyNote className="h-3.5 w-3.5" />
@@ -711,21 +702,21 @@ export default function ClassDetailPage() {
                                 <td className="px-6 py-4 text-left">
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                      <button className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                      <button className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                     </AlertDialogTrigger>
-                                    <AlertDialogContent className="text-right bg-white rounded-2xl border-slate-100">
+                                    <AlertDialogContent className="text-right bg-card rounded-2xl border-border">
                                       <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-slate-900 font-extrabold">
+                                        <AlertDialogTitle className="text-foreground font-extrabold">
                                           تأكيد حذف الطالب
                                         </AlertDialogTitle>
-                                        <AlertDialogDescription className="text-slate-500">
+                                        <AlertDialogDescription className="text-muted-foreground">
                                           هل أنت متأكد من حذف الطالب "{student.name}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter className="flex gap-2 justify-end">
-                                        <AlertDialogCancel className="border-slate-200 rounded-xl">إلغاء</AlertDialogCancel>
+                                        <AlertDialogCancel className="border-border rounded-xl">إلغاء</AlertDialogCancel>
                                         <AlertDialogAction
                                           onClick={() => handleDeleteStudent(student.id)}
                                           className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
@@ -747,9 +738,9 @@ export default function ClassDetailPage() {
                   studentSearch === "" ||
                   student.name.toLowerCase().includes(studentSearch.toLowerCase())
                 ).length === 0 && (
-                  <div className="text-center py-10 bg-slate-50/20">
-                    <Search className="h-10 w-10 mx-auto text-slate-305 mb-2" />
-                    <p className="text-slate-400 text-sm font-semibold">لا توجد نتائج بحث مطابقة</p>
+                  <div className="text-center py-10 bg-muted/20">
+                    <Search className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground text-sm font-semibold">لا توجد نتائج بحث مطابقة</p>
                   </div>
                 )}
               </div>
@@ -760,20 +751,20 @@ export default function ClassDetailPage() {
             <div className="grid gap-6 lg:grid-cols-3 items-start">
               {/* Daily Attendance Sheet */}
               <div className="lg:col-span-2 space-y-4">
-                <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-                  <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <Card className="border border-border bg-card shadow-sm rounded-2xl">
+                  <div className="p-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-bold text-slate-800">بيانات الحضور اليومي</h3>
-                      <p className="text-xs text-slate-405 mt-0.5">اختر التاريخ وعلم حضور أو غياب الطلاب</p>
+                      <h3 className="font-bold text-foreground">بيانات الحضور اليومي</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">اختر التاريخ وعلم حضور أو غياب الطلاب</p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs font-bold text-slate-500 whitespace-nowrap">تاريخ الرصد:</Label>
+                      <Label className="text-xs font-bold text-muted-foreground whitespace-nowrap">تاريخ الرصد:</Label>
                       <Input
                         type="date"
                         value={attendanceDate}
                         onChange={(e) => setAttendanceDate(e.target.value)}
-                        className="bg-slate-50 border-slate-200 focus:border-indigo-500 rounded-xl h-9 text-slate-800 text-sm"
+                        className="bg-muted border-border focus:border-primary rounded-xl h-9 text-foreground text-sm"
                         dir="ltr"
                       />
                     </div>
@@ -781,7 +772,7 @@ export default function ClassDetailPage() {
 
                   <CardContent className="p-5">
                     {students.length === 0 ? (
-                      <div className="text-center py-10 text-slate-400">
+                      <div className="text-center py-10 text-muted-foreground">
                         <ClipboardCheck className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                         <p className="text-sm font-semibold">لا يوجد طلاب بالصف حالياً لتسجيل الحضور</p>
                       </div>
@@ -815,8 +806,8 @@ export default function ClassDetailPage() {
                                     {student.name.substring(0, 1)}
                                   </div>
                                   <div>
-                                    <span className="block font-bold text-slate-800 text-sm">{student.name}</span>
-                                    <span className="text-[10px] text-slate-400">انقر للتغيير</span>
+                                    <span className="block font-bold text-foreground text-sm">{student.name}</span>
+                                    <span className="text-[10px] text-muted-foreground">انقر للتغيير</span>
                                   </div>
                                 </div>
 
@@ -840,10 +831,10 @@ export default function ClassDetailPage() {
                             )
                           })}
 
-                        <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">
+                        <div className="pt-4 border-t border-border mt-6 flex justify-end">
                           <Button
                             onClick={handleSaveAttendance}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md px-8 font-bold flex items-center gap-2 h-10 border-0"
+                            className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-md px-8 font-bold flex items-center gap-2 h-10 border-0"
                           >
                             <ClipboardCheck className="h-4.5 w-4.5" />
                             <span>حفظ سجل الحضور</span>
@@ -857,59 +848,87 @@ export default function ClassDetailPage() {
 
               {/* Attendance History Sidebar */}
               <div className="space-y-4">
-                <Card className="border border-slate-100 bg-white shadow-sm rounded-2xl">
-                  <div className="p-5 border-b border-slate-100">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <Calendar className="h-4.5 w-4.5 text-indigo-500" />
+                <Card className="border border-border bg-card shadow-sm rounded-2xl">
+                  <div className="p-5 border-b border-border">
+                    <h3 className="font-bold text-foreground flex items-center gap-1.5">
+                      <Calendar className="h-4.5 w-4.5 text-violet-500" />
                       <span>السجل التاريخي للحضور</span>
                     </h3>
-                    <p className="text-xs text-slate-405 mt-0.5">آخر 10 أيام تم رصدها</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">آخر 10 أيام مسجلة من 27 مايو 2026</p>
                   </div>
 
                   <CardContent className="p-5">
-                    {attendance.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400">
+                    {attendance.filter(a => a.date >= "2026-05-27").length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
                         <Calendar className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                        <p className="text-xs font-semibold">لا توجد سجلات سابقة للمقارنة</p>
+                        <p className="text-xs font-semibold">لا توجد سجلات حضور من 27 مايو 2026</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {attendance
+                          .filter(a => a.date >= "2026-05-27")
                           .sort((a, b) => b.date.localeCompare(a.date))
                           .slice(0, 10)
                           .map((record) => {
-                            const present = record.records.filter((r) => r.present).length
-                            const absent = record.records.length - present
-                            const rate = Math.round((present / record.records.length) * 100)
-
-                            const absentStudents = record.records
-                              .filter((r) => !r.present)
-                              .map((r) => r.studentName)
-                              .slice(0, 3)
+                            const presentRecords = record.records.filter(r => r.present)
+                            const absentRecords = record.records.filter(r => !r.present)
+                            const rate = record.records.length > 0
+                              ? Math.round((presentRecords.length / record.records.length) * 100)
+                              : 0
 
                             return (
                               <div
                                 key={record.id}
-                                className="p-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl transition-all"
+                                className="p-3 bg-muted/50 hover:bg-muted border border-border rounded-xl transition-all"
                               >
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <span className="font-bold text-slate-700 text-xs font-mono">{record.date}</span>
-                                  <Badge className="bg-indigo-50 hover:bg-indigo-50 text-indigo-700 text-[10px] rounded px-1.5 py-0.5">
-                                    حضور: {rate}%
+                                {/* Header row */}
+                                <div className="flex items-center justify-between gap-2 mb-2.5">
+                                  <span className="font-bold text-foreground text-xs font-mono">{record.date.replace(/-/g, " ")}</span>
+                                  <Badge className={`text-[10px] rounded px-1.5 py-0.5 hover:opacity-100 ${rate === 100 ? "bg-emerald-50 text-emerald-700" : rate >= 80 ? "bg-violet-50 text-violet-700" : "bg-rose-50 text-rose-600"}`}>
+                                    {rate}%
                                   </Badge>
                                 </div>
 
-                                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                                  <span>الحضور: {present} طلاب</span>
-                                  <span className="text-rose-600">الغياب: {absent} طلاب</span>
-                                </div>
-
-                                {absentStudents.length > 0 && (
-                                  <div className="text-[10px] text-rose-600 bg-rose-50/50 border border-rose-100/60 rounded px-2 py-1 mt-1.5 leading-relaxed">
-                                    <strong>الغائبون: </strong>
-                                    {absentStudents.join("، ")}
-                                    {absent > 3 && ` وآخرون`}
+                                {/* Present students */}
+                                {presentRecords.length > 0 && (
+                                  <div className="mb-2">
+                                    <p className="text-[10px] font-bold text-emerald-700 mb-1 flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3" />
+                                      حاضر ({presentRecords.length})
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {presentRecords.slice(0, 5).map(r => (
+                                        <span key={r.studentId} className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 rounded px-1.5 py-0.5 font-medium">
+                                          {r.studentName}
+                                        </span>
+                                      ))}
+                                      {presentRecords.length > 5 && (
+                                        <span className="text-[10px] text-muted-foreground font-semibold self-center">+{presentRecords.length - 5}</span>
+                                      )}
+                                    </div>
                                   </div>
+                                )}
+
+                                {/* Absent students */}
+                                {absentRecords.length > 0 ? (
+                                  <div>
+                                    <p className="text-[10px] font-bold text-rose-600 mb-1 flex items-center gap-1">
+                                      <XCircle className="h-3 w-3" />
+                                      غائب ({absentRecords.length})
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {absentRecords.map(r => (
+                                        <span key={r.studentId} className="text-[10px] bg-rose-50 text-rose-700 border border-rose-100 rounded px-1.5 py-0.5 font-medium">
+                                          {r.studentName}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                                    <CheckCircle className="h-3 w-3" />
+                                    جميع الطلاب حاضرون
+                                  </p>
                                 )}
                               </div>
                             )
@@ -926,9 +945,9 @@ export default function ClassDetailPage() {
 
       {/* Notes Dialog */}
       <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
-        <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="border-b border-slate-100 pb-3">
-            <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
+        <DialogContent className="text-right bg-card border-border rounded-2xl max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
               <StickyNote className="h-5 w-5 text-amber-500" />
               <span>ملاحظات الطالب: {selectedStudentForNotes?.name}</span>
             </DialogTitle>
@@ -936,8 +955,8 @@ export default function ClassDetailPage() {
 
           <div className="flex flex-col gap-6 pt-4">
             {/* Add New Note */}
-            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4">
-              <span className="block text-xs font-bold text-slate-500 mb-3">كتابة ملاحظة جديدة</span>
+            <div className="bg-muted border border-border/60 rounded-xl p-4">
+              <span className="block text-xs font-bold text-muted-foreground mb-3">كتابة ملاحظة جديدة</span>
               <div className="flex flex-col gap-3">
                 <div className="flex gap-1.5 flex-wrap">
                   {(["general", "academic", "behavioral", "health"] as const).map((cat) => (
@@ -947,7 +966,7 @@ export default function ClassDetailPage() {
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
                         newNoteCategory === cat
                           ? getCategoryColor(cat)
-                          : "bg-white text-slate-500 hover:bg-slate-100 border-slate-200"
+                          : "bg-white text-muted-foreground hover:bg-muted border-border"
                       }`}
                     >
                       {getCategoryLabel(cat)}
@@ -960,12 +979,12 @@ export default function ClassDetailPage() {
                     value={newNoteContent}
                     onChange={(e) => setNewNoteContent(e.target.value)}
                     rows={2}
-                    className="border-slate-250 bg-white rounded-xl text-slate-850 resize-none flex-1 text-sm focus:border-indigo-500"
+                    className="border-border bg-card rounded-xl text-foreground resize-none flex-1 text-sm focus:border-primary"
                   />
                   <Button
                     onClick={handleAddNote}
                     disabled={!newNoteContent.trim()}
-                    className="bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl h-auto px-4 self-stretch border-0 flex items-center justify-center shadow-sm"
+                    className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-auto px-4 self-stretch border-0 flex items-center justify-center shadow-sm"
                   >
                     <Plus className="h-5 w-5" />
                   </Button>
@@ -975,9 +994,9 @@ export default function ClassDetailPage() {
 
             {/* Notes List */}
             <div className="space-y-3">
-              <span className="block text-xs font-bold text-slate-500">الملاحظات المسجلة</span>
+              <span className="block text-xs font-bold text-muted-foreground">الملاحظات المسجلة</span>
               {studentNotes.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 bg-slate-50/20 border border-slate-100 rounded-xl">
+                <div className="text-center py-8 text-muted-foreground bg-muted/20 border border-border rounded-xl">
                   <FileText className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                   <p className="text-xs font-semibold">لا توجد ملاحظات مسجلة لهذا الطالب</p>
                 </div>
@@ -986,7 +1005,7 @@ export default function ClassDetailPage() {
                   {studentNotes.map((note) => (
                     <div
                       key={note.id}
-                      className="p-4 bg-white border border-slate-150 rounded-xl relative group hover:border-slate-300 transition-colors"
+                      className="p-4 bg-card border border-border rounded-xl relative group hover:border-primary/30 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-2">
@@ -999,16 +1018,16 @@ export default function ClassDetailPage() {
                             >
                               {getCategoryLabel(note.category)}
                             </Badge>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-muted-foreground font-mono">
                               {new Date(note.createdAt).toLocaleDateString("ar-EG", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
                               })}
-                              {note.updatedAt && <span className="text-indigo-500"> (معدل)</span>}
+                              {note.updatedAt && <span className="text-violet-500"> (معدل)</span>}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap font-medium">
+                          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-medium">
                             {note.content}
                           </p>
                         </div>
@@ -1018,7 +1037,7 @@ export default function ClassDetailPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => openEditNoteDialog(note)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-600 hover:bg-violet-50 rounded-lg"
                           >
                             <Edit3 className="h-4 w-4" />
                           </Button>
@@ -1027,22 +1046,22 @@ export default function ClassDetailPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent className="text-right bg-white rounded-2xl border-slate-100">
+                            <AlertDialogContent className="text-right bg-card rounded-2xl border-border">
                               <AlertDialogHeader>
-                                <AlertDialogTitle className="font-extrabold text-slate-900">
+                                <AlertDialogTitle className="font-extrabold text-foreground">
                                   حذف الملاحظة
                                 </AlertDialogTitle>
-                                <AlertDialogDescription className="text-slate-500 text-sm">
+                                <AlertDialogDescription className="text-muted-foreground text-sm">
                                   هل أنت متأكد من حذف هذه الملاحظة؟ لن يكون من الممكن استعادتها.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter className="flex gap-2 justify-end">
-                                <AlertDialogCancel className="border-slate-200 rounded-xl">إلغاء</AlertDialogCancel>
+                                <AlertDialogCancel className="border-border rounded-xl">إلغاء</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleDeleteNote(note.id)}
                                   className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
@@ -1065,17 +1084,17 @@ export default function ClassDetailPage() {
 
       {/* Edit Note Dialog */}
       <Dialog open={editNoteDialogOpen} onOpenChange={setEditNoteDialogOpen}>
-        <DialogContent className="text-right bg-white border-slate-100 rounded-2xl max-w-md">
+        <DialogContent className="text-right bg-card border-border rounded-2xl max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-slate-900 font-extrabold text-lg flex items-center gap-2">
-              <Edit3 className="h-4.5 w-4.5 text-indigo-500" />
+            <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
+              <Edit3 className="h-4.5 w-4.5 text-violet-500" />
               <span>تعديل تفاصيل الملاحظة</span>
             </DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-slate-700 font-bold text-xs">فئة الملاحظة</Label>
+              <Label className="text-foreground font-bold text-xs">فئة الملاحظة</Label>
               <div className="flex gap-1.5 flex-wrap">
                 {(["general", "academic", "behavioral", "health"] as const).map((cat) => (
                   <button
@@ -1084,7 +1103,7 @@ export default function ClassDetailPage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                       newNoteCategory === cat
                         ? getCategoryColor(cat)
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200 border-transparent"
+                        : "bg-muted text-muted-foreground hover:bg-muted/50 border-transparent"
                     }`}
                   >
                     {getCategoryLabel(cat)}
@@ -1094,25 +1113,25 @@ export default function ClassDetailPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-slate-700 font-bold text-xs">محتوى الملاحظة المعدل</Label>
+              <Label className="text-foreground font-bold text-xs">محتوى الملاحظة المعدل</Label>
               <Textarea
                 placeholder="اكتب الملاحظة الجديدة..."
                 value={newNoteContent}
                 onChange={(e) => setNewNoteContent(e.target.value)}
                 rows={4}
-                className="border-slate-200 bg-slate-50/50 focus:border-indigo-500 rounded-xl text-slate-800 resize-none text-sm"
+                className="border-border bg-muted/50 focus:border-primary rounded-xl text-foreground resize-none text-sm"
               />
             </div>
 
             <div className="flex gap-2 justify-end pt-2">
               <DialogClose asChild>
-                <Button variant="outline" className="border-slate-200 rounded-xl h-10">
+                <Button variant="outline" className="border-border rounded-xl h-10">
                   إلغاء
                 </Button>
               </DialogClose>
               <Button
                 onClick={handleEditNote}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-10 px-5"
+                className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl h-10 px-5"
               >
                 حفظ التعديلات
               </Button>

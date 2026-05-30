@@ -14,13 +14,13 @@ const fileLimiter = (0, rate_limit_middleware_1.rateLimit)({
     maxHits: 10,
     keyPrefix: "files",
 });
-// Public reads
-router.get("/", files_controller_1.FilesController.getAll);
-router.get("/filter", files_controller_1.FilesController.getFiltered);
-// Protected uploads and modifications
+const publicLimiter = (0, rate_limit_middleware_1.rateLimit)({ windowMs: 60 * 1000, maxHits: 300, keyPrefix: "files-pub" });
 router.use(auth_middleware_1.authenticate);
-router.post("/upload", fileLimiter, upload_middleware_1.upload.single("file"), files_controller_1.FilesController.upload);
-router.post("/", fileLimiter, file_validator_1.fileValidator, validate_middleware_1.validate, files_controller_1.FilesController.create);
-router.delete("/:id", files_controller_1.FilesController.delete);
+router.use(auth_middleware_1.injectTeacher);
+router.get("/", publicLimiter, files_controller_1.FilesController.getAll);
+router.get("/filter", publicLimiter, files_controller_1.FilesController.getFiltered);
+router.post("/upload", auth_middleware_1.requireAdminOrActiveTeacher, fileLimiter, upload_middleware_1.upload.single("file"), files_controller_1.FilesController.upload);
+router.post("/", auth_middleware_1.requireAdminOrActiveTeacher, fileLimiter, file_validator_1.fileValidator, validate_middleware_1.validate, files_controller_1.FilesController.create);
+router.delete("/:id", auth_middleware_1.requireAdminOrActiveTeacher, files_controller_1.FilesController.delete);
 exports.default = router;
 //# sourceMappingURL=files.routes.js.map

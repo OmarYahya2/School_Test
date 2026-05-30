@@ -5,7 +5,7 @@ export async function fetchAllSchedule(): Promise<ScheduleItem[]> {
   try {
     return await client.get<ScheduleItem[]>("/schedule");
   } catch (error) {
-    console.error("fetchAllSchedule error:", error);
+    if (!(error as any)?.silent) console.error("fetchAllSchedule error:", error);
     return [];
   }
 }
@@ -18,7 +18,7 @@ export async function fetchScheduleByClass(classId: string, semester?: number): 
     }
     return items;
   } catch (error) {
-    console.error("fetchScheduleByClass error:", error);
+    if (!(error as any)?.silent) console.error("fetchScheduleByClass error:", error);
     return [];
   }
 }

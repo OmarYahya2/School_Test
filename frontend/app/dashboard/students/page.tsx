@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -24,6 +24,9 @@ import {
   Eye,
   MoreHorizontal
 } from "lucide-react"
+
+import { Card, CardContent } from "@/components/ui/card" 
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -63,13 +66,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import type { Student, SchoolClass } from "@/lib/store"
+import { useAdminStudents, useAdminClasses } from "@/lib/hooks/use-admin-data"
 import {
-  fetchStudents,
   createStudent,
   deleteStudentById,
-  fetchClasses,
 } from "@/lib/supabase-school"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, type Variants } from "framer-motion"
+import { useLanguage } from "@/lib/i18n/context"
 
 // Note type for parsing notes
 type Note = {
@@ -81,7 +84,7 @@ type Note = {
   author?: string
 }
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -91,14 +94,17 @@ const containerVariants = {
   }
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
 }
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>([])
-  const [classes, setClasses] = useState<SchoolClass[]>([])
+  const { t, language } = useLanguage()
+  const sp = t.studentsPage
+  const { data: students = [], isLoading: studentsLoading, refetch: refetchStudents } = useAdminStudents()
+  const { data: classes = [] } = useAdminClasses()
+  const loading = studentsLoading
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedClass, setSelectedClass] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("name")
@@ -153,31 +159,22 @@ export default function StudentsPage() {
     }
   }
 
-  const reload = useCallback(async () => {
-    const [studentsData, classesData] = await Promise.all([
-      fetchStudents(),
-      fetchClasses(),
-    ])
-    setStudents(studentsData)
-    setClasses(classesData)
-  }, [])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
+  const reload = useCallback(() => {
+    refetchStudents()
+  }, [refetchStudents])
 
   async function handleAddStudent() {
     if (!newName.trim()) {
-      toast.error("يرجى إدخال اسم الطالب")
+      toast.error(sp.studentName)
       return
     }
     if (!newClassId) {
-      toast.error("يرجى اختيار الصف")
+      toast.error(sp.studentClass)
       return
     }
     const age = parseInt(newAge)
     if (isNaN(age) || age < 3 || age > 25) {
-      toast.error("يرجى إدخال عمر صحيح (3-25)")
+      toast.error(t.forms.age)
       return
     }
     const created = await createStudent(
@@ -188,7 +185,7 @@ export default function StudentsPage() {
       newNotes.trim()
     )
     if (!created) {
-      toast.error("حدث خطأ أثناء إضافة الطالب")
+      toast.error(sp.addStudent)
       return
     }
     setNewName("")
@@ -198,18 +195,18 @@ export default function StudentsPage() {
     setNewClassId("")
     setAddOpen(false)
     void reload()
-    toast.success("تمت إضافة الطالب بنجاح")
+    toast.success(sp.addSuccess)
   }
 
   async function handleDeleteStudent(id: string) {
     await deleteStudentById(id)
     void reload()
-    toast.success("تم حذف الطالب بنجاح")
+    toast.success(sp.deleteSuccess)
   }
 
   function getClassName(classId: string): string {
     const cls = classes.find((c) => c.id === classId)
-    return cls ? cls.name : "غير معروف"
+    return cls ? cls.name : sp.notAssigned
   }
 
   // Filter students based on search and filters
@@ -359,59 +356,59 @@ export default function StudentsPage() {
       initial="hidden"
       animate="show"
       variants={containerVariants}
-      className="space-y-6 text-right"
+      className={`space-y-6 ${language === "ar" ? "text-right" : "text-left"}`}
     >
       {/* Header section with add student dialog */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-100 rounded-2xl shadow-sm shadow-slate-100/40">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-5 border border-border/50 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <GraduationCap className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">سجل الطلاب</h1>
-            <p className="text-xs sm:text-sm text-slate-400">إدارة وتسجيل الطلاب وتخصيص الصفوف ومتابعة الملاحظات</p>
+            <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{sp.title}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">{sp.noStudentsDesc}</p>
           </div>
         </div>
 
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-650 hover:to-purple-700 text-white rounded-xl h-10 px-5 font-bold shadow-md shadow-indigo-500/10 border-0 flex items-center gap-1.5 transition-all duration-300 hover:scale-103 active:scale-97">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-10 px-5 font-bold shadow-md border-0 flex items-center gap-1.5">
               <Plus className="h-4 w-4" />
-              <span>تسجيل طالب جديد</span>
+              <span>{sp.addStudent}</span>
             </Button>
           </DialogTrigger>
-          <DialogContent dir="rtl" className="text-right max-w-md bg-white border-slate-100 rounded-2xl">
+          <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className={`${language === "ar" ? "text-right" : "text-left"} max-w-md bg-card border-border rounded-2xl`}>
             <DialogHeader>
-              <DialogTitle className="text-slate-800 font-extrabold text-lg">تسجيل طالب جديد في النظام</DialogTitle>
+              <DialogTitle className="text-foreground font-extrabold text-lg">{sp.addStudentTitle}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 pt-2">
               <div className="space-y-1.5">
-                <Label className="text-slate-650 text-xs sm:text-sm">اسم الطالب الكامل</Label>
+                <Label className="text-muted-foreground text-xs sm:text-sm">{sp.studentName}</Label>
                 <Input
-                  placeholder="أدخل اسم الطالب رباعي"
+                  placeholder={sp.studentName}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl h-10 text-slate-800"
+                  className="bg-background border-border rounded-xl h-10"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-slate-650 text-xs sm:text-sm">العمر (سنوات)</Label>
+                  <Label className="text-muted-foreground text-xs sm:text-sm">{t.forms.age}</Label>
                   <Input
                     type="number"
-                    placeholder="مثال: 8"
+                    placeholder="8"
                     value={newAge}
                     onChange={(e) => setNewAge(e.target.value)}
                     min={3}
                     max={25}
-                    className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl h-10 text-slate-850"
+                    className="bg-background border-border rounded-xl h-10"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-650 text-xs sm:text-sm">الصف الدراسي</Label>
+                  <Label className="text-muted-foreground text-xs sm:text-sm">{sp.studentClass}</Label>
                   <Select value={newClassId} onValueChange={setNewClassId}>
-                    <SelectTrigger className="border-slate-200 bg-slate-50 rounded-xl h-10">
-                      <SelectValue placeholder="اختر الصف" />
+                    <SelectTrigger className="border-border bg-background rounded-xl h-10">
+                      <SelectValue placeholder={t.forms.selectClass} />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((cls) => (
@@ -424,33 +421,33 @@ export default function StudentsPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-650 text-xs sm:text-sm">رقم هاتف ولي الأمر</Label>
+                <Label className="text-muted-foreground text-xs sm:text-sm">{sp.studentPhone}</Label>
                 <Input
-                  placeholder="مثال: 0599123456"
+                  placeholder="0599123456"
                   value={newParentPhone}
                   onChange={(e) => setNewParentPhone(e.target.value)}
                   dir="ltr"
-                  className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl h-10 text-right text-slate-850 placeholder:text-right"
+                  className="bg-background border-border rounded-xl h-10 text-right placeholder:text-right"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-650 text-xs sm:text-sm">ملاحظات أولية</Label>
+                <Label className="text-muted-foreground text-xs sm:text-sm">{sp.studentNotes}</Label>
                 <Textarea
-                  placeholder="ملاحظات صحية، سلوكية، أو دراسية (اختياري)"
+                  placeholder={sp.studentNotes}
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
                   rows={3}
-                  className="bg-slate-50 border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl text-slate-850 resize-none"
+                  className="bg-background border-border rounded-xl resize-none"
                 />
               </div>
               <div className="flex gap-2 justify-end pt-2">
                 <DialogClose asChild>
-                  <Button variant="outline" className="border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50">
-                    إلغاء
+                  <Button variant="outline" className="border-border rounded-xl">
+                    {t.actions.cancel}
                   </Button>
                 </DialogClose>
-                <Button onClick={handleAddStudent} className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl px-5 font-bold shadow-md shadow-indigo-500/10 border-0 h-10">
-                  إضافة الطالب
+                <Button onClick={handleAddStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-5 font-bold border-0 h-10">
+                  {sp.addStudent}
                 </Button>
               </div>
             </div>
@@ -459,69 +456,67 @@ export default function StudentsPage() {
       </motion.div>
 
       {/* Metrics Summary cards */}
-      <motion.div variants={itemVariants} className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <motion.div variants={itemVariants} className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "إجمالي الطلاب", value: stats.totalStudents, icon: <Users className="h-5 w-5 text-indigo-500" /> },
-          { label: "متوسط أعمار الطلاب", value: `${stats.averageAge} سنوات`, icon: <Calendar className="h-5 w-5 text-emerald-500" /> },
-          { label: "الصفوف الدراسية", value: stats.totalClasses, icon: <School className="h-5 w-5 text-blue-500" /> },
-          { label: "أرقام تواصل مسجلة", value: stats.studentsWithPhone, icon: <Phone className="h-5 w-5 text-amber-500" /> },
+          { label: sp.totalStudents, value: loading ? "—" : stats.totalStudents,       icon: <Users className="h-4 w-4" />,    iconBg: "bg-primary/10 text-primary" },
+          { label: t.forms.age,      value: loading ? "—" : `${stats.averageAge}`,       icon: <Calendar className="h-4 w-4" />,  iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" },
+          { label: t.nav.classes,    value: loading ? "—" : stats.totalClasses,          icon: <School className="h-4 w-4" />,    iconBg: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" },
+          { label: t.forms.phone,    value: loading ? "—" : stats.studentsWithPhone,     icon: <Phone className="h-4 w-4" />,     iconBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" },
         ].map((card, index) => (
-          <Card key={index} className="border-slate-100 bg-white shadow-sm shadow-slate-100/40">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] sm:text-xs font-bold text-slate-500">{card.label}</span>
-                <p className="text-lg sm:text-xl font-extrabold text-slate-800 mt-1">{card.value}</p>
-              </div>
-              <div className="h-9 w-9 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
+          <Card key={index} className="border-border/50 bg-card shadow-sm">
+            <CardContent className="p-4">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg mb-3 ${card.iconBg}`}>
                 {card.icon}
               </div>
+              <p className="text-xl font-black text-foreground leading-none">{card.value}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground mt-1.5">{card.label}</p>
             </CardContent>
           </Card>
         ))}
       </motion.div>
 
       {/* Search and Filters Section */}
-      <motion.div variants={itemVariants} className="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-slate-100/40">
-        <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+      <motion.div variants={itemVariants} className="bg-card rounded-2xl border border-border/50 shadow-sm">
+        <div className="p-4 border-b border-border/30 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <h2 className="text-xs sm:text-sm font-bold text-slate-800">خيارات البحث والتصفية</h2>
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-xs sm:text-sm font-bold text-foreground">{sp.filter}</h2>
           </div>
-          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold">
-            {filteredStudents.length} طالباً مطابقاً
+          <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15 rounded-lg text-xs font-bold">
+            {filteredStudents.length}
           </Badge>
         </div>
         <div className="p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-end">
             {/* Search Input */}
             <div className="flex-1">
-              <Label className="text-xs text-slate-500 mb-2 block font-semibold">ابحث بالاسم أو الهاتف</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block font-semibold">{sp.searchPlaceholder}</Label>
               <div className="relative">
-                <Search className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className={`absolute ${language === "ar" ? "right-3.5" : "left-3.5"} top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground`} />
                 <Input
-                  placeholder="ابحث عن طالب بالاسم أو رقم هاتف ولي الأمر..."
+                  placeholder={sp.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
                     setDisplayCount(INITIAL_DISPLAY_COUNT)
                   }}
-                  className="pr-10 border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl h-10 text-slate-800"
+                  className={`${language === "ar" ? "pr-10" : "pl-10"} border-border rounded-xl h-10`}
                 />
               </div>
             </div>
 
             {/* Class Filter select */}
             <div className="w-full md:w-48">
-              <Label className="text-xs text-slate-500 mb-2 block font-semibold">تصفية حسب الصف</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block font-semibold">{sp.filter}</Label>
               <Select value={selectedClass} onValueChange={(v) => {
                 setSelectedClass(v)
                 setDisplayCount(INITIAL_DISPLAY_COUNT)
               }}>
-                <SelectTrigger className="border-slate-200 rounded-xl h-10">
-                  <SelectValue placeholder="جميع الصفوف" />
+                <SelectTrigger className="border-border rounded-xl h-10">
+                  <SelectValue placeholder={sp.allClasses} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">جميع الصفوف</SelectItem>
+                  <SelectItem value="all">{sp.allClasses}</SelectItem>
                   {classes.map((cls) => (
                     <SelectItem key={cls.id} value={cls.id}>
                       {cls.name}
@@ -533,17 +528,17 @@ export default function StudentsPage() {
 
             {/* Sort Filter select */}
             <div className="w-full md:w-48">
-              <Label className="text-xs text-slate-500 mb-2 block font-semibold">ترتيب النتائج</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block font-semibold">{t.table.name}</Label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="border-slate-200 rounded-xl h-10">
-                  <ArrowUpDown className="h-4 w-4 ml-2 text-slate-400" />
+                <SelectTrigger className="border-border rounded-xl h-10">
+                  <ArrowUpDown className="h-4 w-4 ms-2 text-muted-foreground" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name">الاسم</SelectItem>
-                  <SelectItem value="age">العمر</SelectItem>
-                  <SelectItem value="class">الصف</SelectItem>
-                  <SelectItem value="createdAt">تاريخ التسجيل</SelectItem>
+                  <SelectItem value="name">{t.table.name}</SelectItem>
+                  <SelectItem value="age">{t.forms.age}</SelectItem>
+                  <SelectItem value="class">{t.table.class}</SelectItem>
+                  <SelectItem value="createdAt">{t.table.date}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -551,20 +546,20 @@ export default function StudentsPage() {
             {/* Export Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 rounded-xl h-10">
+                <Button variant="outline" className="border-border gap-2 rounded-xl h-10">
                   <Download className="h-4 w-4" />
-                  <span>تصدير البيانات</span>
+                  <span>{t.actions.export ?? "Export"}</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-slate-100 rounded-xl">
-                <DropdownMenuItem onClick={exportToExcel} className="gap-2 text-slate-700 cursor-pointer font-semibold py-2">
+              <DropdownMenuContent align="end" className="border-border rounded-xl">
+                <DropdownMenuItem onClick={exportToExcel} className="gap-2 cursor-pointer font-semibold py-2">
                   <FileText className="h-4 w-4 text-emerald-500" />
-                  تصدير لـ Excel (CSV)
+                  Excel (CSV)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToWord} className="gap-2 text-slate-700 cursor-pointer font-semibold py-2">
+                <DropdownMenuItem onClick={exportToWord} className="gap-2 cursor-pointer font-semibold py-2">
                   <FileText className="h-4 w-4 text-blue-500" />
-                  تصدير تقرير Word
+                  Word
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -574,44 +569,63 @@ export default function StudentsPage() {
 
       {/* Students Data Grid/Table */}
       <motion.div variants={itemVariants}>
-        {filteredStudents.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
-            <div className="h-14 w-14 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-3.5">
-              <UserCircle className="h-7 w-7 text-slate-350" />
+        {loading ? (
+          <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border/30">
+              <div className="h-4 w-32 skeleton" />
             </div>
-            <p className="text-sm sm:text-base font-bold text-slate-700">لا توجد نتائج مطابقة لبحثك</p>
-            <p className="text-xs text-slate-400 mt-1">تأكد من كتابة الاسم بشكل صحيح أو تغيير الصف المحدد.</p>
+            <div className="divide-y divide-border/30">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-4">
+                  <div className="h-9 w-9 rounded-lg skeleton flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-40 skeleton" />
+                    <div className="h-2.5 w-24 skeleton" />
+                  </div>
+                  <div className="h-6 w-20 skeleton rounded-full" />
+                  <div className="h-6 w-24 skeleton rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-12 text-center">
+            <div className="h-14 w-14 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3.5">
+              <UserCircle className="h-7 w-7 text-muted-foreground/40" />
+            </div>
+            <p className="text-sm sm:text-base font-bold text-foreground">{sp.noResults}</p>
+            <p className="text-xs text-muted-foreground mt-1">{sp.noResultsDesc}</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             
             {/* Desktop Table View */}
-            <div className="hidden md:block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-slate-100/40 overflow-hidden">
+            <div className="hidden md:block bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-600">
-                      <th className="px-6 py-3.5 text-right text-xs font-bold uppercase tracking-wider">الطالب</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider">العمر</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider">الصف الدراسي</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider">هاتف ولي الأمر</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider">تاريخ التسجيل</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider">الملاحظات</th>
-                      <th className="px-6 py-3.5 text-center text-xs font-bold uppercase tracking-wider w-24">إجراءات</th>
+                    <tr className="bg-muted/40 border-b border-border/50">
+                      <th className="px-5 py-3 text-start text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.table.name}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.forms.age}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.table.class}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.table.phone}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.table.date}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.table.notes}</th>
+                      <th className="px-5 py-3 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24">{t.table.actions}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-border/30">
                     {displayedStudents.map((student) => (
-                      <tr key={student.id} className="hover:bg-slate-50/30 transition-colors group">
+                      <tr key={student.id} className="hover:bg-muted/20 transition-colors group">
                         <td className="px-6 py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 font-bold text-xs">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-xs">
                               {getInitials(student.name)}
                             </div>
                             <div>
                               <Link 
                                 href={`/dashboard/student/${student.id}`}
-                                className="font-bold text-slate-800 hover:text-indigo-600 transition-colors block text-xs sm:text-sm"
+                                className="font-bold text-foreground hover:text-primary transition-colors block text-xs sm:text-sm"
                               >
                                 {student.name}
                               </Link>
@@ -619,21 +633,21 @@ export default function StudentsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-3.5 text-center">
-                          <span className="text-xs sm:text-sm text-slate-600 font-medium">{student.age} سنة</span>
+                          <span className="text-xs sm:text-sm text-foreground/70 font-medium">{student.age}</span>
                         </td>
                         <td className="px-6 py-3.5 text-center">
-                          <Badge variant="secondary" className="bg-slate-50 border-slate-100 text-slate-600 text-xs font-medium">
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs font-medium">
                             {getClassName(student.classId)}
                           </Badge>
                         </td>
                         <td className="px-6 py-3.5 text-center" dir="ltr">
-                          <span className="text-xs sm:text-sm text-slate-500 font-mono">
+                          <span className="text-xs sm:text-sm text-muted-foreground font-mono">
                             {student.parentPhone || "-"}
                           </span>
                         </td>
                         <td className="px-6 py-3.5 text-center">
-                          <span className="text-xs text-slate-400 font-semibold">
-                            {new Date(student.createdAt).toLocaleDateString("ar-EG", {
+                          <span className="text-xs text-muted-foreground font-semibold">
+                            {new Date(student.createdAt).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric'
@@ -649,15 +663,15 @@ export default function StudentsPage() {
                                 asChild
                                 variant="outline"
                                 size="sm"
-                                className="h-6 px-2 bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 rounded-md text-xs font-bold"
+                                className="h-6 px-2 bg-primary/10 border-primary/20 text-primary hover:bg-primary/15 rounded-md text-xs font-bold"
                               >
                                 <Link href={`/dashboard/student/${student.id}/notes`}>
-                                  <StickyNote className="ml-1 h-3 w-3" />
+                                  <StickyNote className="me-1 h-3 w-3" />
                                   <span>{notesCount}</span>
                                 </Link>
                               </Button>
                             ) : (
-                              <span className="text-slate-300 text-xs">-</span>
+                              <span className="text-muted-foreground/40 text-xs">-</span>
                             )
                           })()}
                         </td>
@@ -667,11 +681,11 @@ export default function StudentsPage() {
                               asChild 
                               variant="ghost" 
                               size="sm"
-                              className="h-7 px-2.5 text-xs text-slate-500 hover:bg-slate-50 rounded-lg"
+                              className="h-7 px-2.5 text-xs text-muted-foreground hover:bg-accent rounded-lg"
                             >
                               <Link href={`/dashboard/student/${student.id}`}>
-                                <Eye className="ml-1 h-3.5 w-3.5" />
-                                ملفه
+                                <Eye className="me-1 h-3.5 w-3.5" />
+                                {sp.viewProfile}
                               </Link>
                             </Button>
                             <AlertDialog>
@@ -679,27 +693,27 @@ export default function StudentsPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                                  className="h-7 w-7 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-white border-slate-100 rounded-2xl text-right">
+                              <AlertDialogContent className={`bg-card border-border rounded-2xl ${language === "ar" ? "text-right" : "text-left"}`}>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle className="text-slate-800 font-extrabold">حذف سجل الطالب</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-slate-500">
-                                    هل أنت متأكد من حذف الطالب &quot;{student.name}&quot; نهائياً؟ سيتم حذف جميع درجاته وغياباته أيضاً.
+                                  <AlertDialogTitle className="text-foreground font-extrabold">{sp.deleteStudent}</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-muted-foreground">
+                                    {sp.deleteConfirm} &quot;{student.name}&quot;
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="flex gap-2 justify-end mt-2">
-                                  <AlertDialogCancel className="border-slate-200 text-slate-650 rounded-xl hover:bg-slate-50">
-                                    إلغاء
+                                  <AlertDialogCancel className="border-border rounded-xl">
+                                    {t.actions.cancel}
                                   </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDeleteStudent(student.id)}
-                                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0 shadow-md shadow-rose-650/10"
+                                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
                                   >
-                                    نعم، احذف الطالب
+                                    {sp.deleteAction}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -718,38 +732,38 @@ export default function StudentsPage() {
               {displayedStudents.map((student) => (
                 <div 
                   key={student.id}
-                  className="bg-white rounded-2xl border border-slate-100 p-4 space-y-3 shadow-sm"
+                  className="bg-card rounded-2xl border border-border/50 p-4 space-y-3 shadow-sm"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-650 font-bold text-xs flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-xs flex-shrink-0">
                         {getInitials(student.name)}
                       </div>
                       <div className="min-w-0">
                         <Link 
                           href={`/dashboard/student/${student.id}`}
-                          className="font-bold text-slate-850 hover:text-indigo-600 transition-colors block text-sm truncate"
+                          className="font-bold text-foreground hover:text-primary transition-colors block text-sm truncate"
                         >
                           {student.name}
                         </Link>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge variant="secondary" className="bg-slate-50 border-slate-100 text-slate-650 text-[10px] font-semibold py-0">
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] font-semibold py-0">
                             {getClassName(student.classId)}
                           </Badge>
-                          <span className="text-[10px] text-slate-450 font-medium">{student.age} سنة</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">{student.age}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {student.parentPhone && (
-                    <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-lg px-2.5 py-1.5" dir="ltr">
-                      <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-xs text-foreground/70 bg-muted/40 rounded-lg px-2.5 py-1.5" dir="ltr">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                       <span className="font-mono">{student.parentPhone}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-2.5 border-t border-slate-105">
+                  <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
                     <div className="flex items-center gap-2">
                       {(() => {
                         const notes = parseNotes(student.notes || "")
@@ -759,17 +773,17 @@ export default function StudentsPage() {
                             asChild
                             variant="outline"
                             size="sm"
-                            className="h-6.5 px-2 bg-indigo-50 border-indigo-100 text-indigo-600 rounded-md text-[10px] font-bold"
+                            className="h-6.5 px-2 bg-primary/10 border-primary/20 text-primary rounded-md text-[10px] font-bold"
                           >
                             <Link href={`/dashboard/student/${student.id}/notes`}>
-                              <StickyNote className="ml-1 h-3 w-3" />
-                              <span>{notesCount} ملاحظة</span>
+                              <StickyNote className="me-1 h-3 w-3" />
+                              <span>{notesCount}</span>
                             </Link>
                           </Button>
                         ) : null
                       })()}
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        {new Date(student.createdAt).toLocaleDateString("ar-EG")}
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {new Date(student.createdAt).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US")}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -777,10 +791,10 @@ export default function StudentsPage() {
                         asChild 
                         variant="ghost" 
                         size="sm"
-                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-50 h-7.5 px-2 text-xs"
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent h-7.5 px-2 text-xs"
                       >
                         <Link href={`/dashboard/student/${student.id}`}>
-                          عرض الملف
+                          {sp.viewProfile}
                         </Link>
                       </Button>
                       <AlertDialog>
@@ -788,27 +802,27 @@ export default function StudentsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7.5 w-7.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                            className="h-7.5 w-7.5 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-white border-slate-100 rounded-2xl text-right">
+                        <AlertDialogContent className={`bg-card border-border rounded-2xl ${language === "ar" ? "text-right" : "text-left"}`}>
                           <AlertDialogHeader>
-                            <AlertDialogTitle className="text-slate-800 font-extrabold">حذف سجل الطالب</AlertDialogTitle>
-                            <AlertDialogDescription className="text-slate-500">
-                              هل أنت متأكد من حذف الطالب &quot;{student.name}&quot;؟
+                            <AlertDialogTitle className="text-foreground font-extrabold">{sp.deleteStudent}</AlertDialogTitle>
+                            <AlertDialogDescription className="text-muted-foreground">
+                              {sp.deleteConfirm} &quot;{student.name}&quot;
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter className="flex gap-2 justify-end mt-2">
-                            <AlertDialogCancel className="border-slate-200 text-slate-650 rounded-xl hover:bg-slate-50">
-                              إلغاء
+                            <AlertDialogCancel className="border-border rounded-xl">
+                              {t.actions.cancel}
                             </AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDeleteStudent(student.id)}
-                              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0 shadow-md shadow-rose-650/10"
+                              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
                             >
-                              حذف الطالب
+                              {sp.deleteAction}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -825,11 +839,11 @@ export default function StudentsPage() {
                 <Button
                   onClick={() => setDisplayCount(prev => prev + INITIAL_DISPLAY_COUNT)}
                   variant="outline"
-                  className="gap-2 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs sm:text-sm"
+                  className="gap-2 border-border rounded-xl text-xs sm:text-sm"
                 >
-                  <span>عرض المزيد من الطلاب</span>
-                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold">
-                    {filteredStudents.length - displayCount} متبقي
+                  <span>{t.actions.loadMore ?? "Load More"}</span>
+                  <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full font-bold">
+                    {filteredStudents.length - displayCount}
                   </span>
                 </Button>
               </div>
@@ -840,9 +854,9 @@ export default function StudentsPage() {
                 <Button
                   onClick={() => setDisplayCount(INITIAL_DISPLAY_COUNT)}
                   variant="ghost"
-                  className="text-slate-500 hover:text-slate-700 rounded-xl"
+                  className="text-muted-foreground rounded-xl"
                 >
-                  إظهار أقل
+                  {t.actions.showLess ?? "Show Less"}
                 </Button>
               </div>
             )}
@@ -852,3 +866,4 @@ export default function StudentsPage() {
     </motion.div>
   )
 }
+

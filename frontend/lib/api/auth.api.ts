@@ -1,14 +1,21 @@
 import { client } from "./client";
-import type { User } from "../store";
-import { setCurrentUser } from "../store";
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  teacherId?: string;
+  createdAt: string;
+}
 
 export async function apiSignUp(
   name: string,
   email: string,
   password: string
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   try {
-    const result = await client.post<{ token: string; refreshToken?: string; user: User }>("/auth/register", {
+    const result = await client.post<{ token: string; refreshToken?: string; user: AuthUser }>("/auth/register", {
       name,
       email,
       password,
@@ -21,7 +28,6 @@ export async function apiSignUp(
           localStorage.setItem("refresh_token", result.refreshToken);
         }
       }
-      setCurrentUser(result.user);
       return result.user;
     }
     return null;
@@ -34,9 +40,9 @@ export async function apiSignUp(
 export async function apiSignIn(
   email: string,
   password: string
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   try {
-    const result = await client.post<{ token: string; refreshToken?: string; user: User }>("/auth/login", {
+    const result = await client.post<{ token: string; refreshToken?: string; user: AuthUser }>("/auth/login", {
       email,
       password,
     });
@@ -48,7 +54,6 @@ export async function apiSignIn(
           localStorage.setItem("refresh_token", result.refreshToken);
         }
       }
-      setCurrentUser(result.user);
       return result.user;
     }
     return null;
@@ -67,5 +72,4 @@ export async function apiSignOut(): Promise<void> {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
   }
-  setCurrentUser(null);
 }

@@ -5,7 +5,8 @@ export async function fetchClasses(): Promise<SchoolClass[]> {
   try {
     return await client.get<SchoolClass[]>("/classes");
   } catch (error) {
-    console.error("fetchClasses error:", error);
+    const { status = 0, message = "Unknown error", silent = false } = (error as any) ?? {};
+    if (!silent) console.error(`fetchClasses error [${status}]: ${message}`);
     return [];
   }
 }
@@ -19,11 +20,11 @@ export async function fetchClassById(id: string): Promise<SchoolClass | null> {
   }
 }
 
-export async function createClass(name: string): Promise<SchoolClass | null> {
+export async function createClass(name: string, teacherId?: string | null): Promise<SchoolClass | null> {
   try {
-    return await client.post<SchoolClass>("/classes", { name });
-  } catch (error) {
-    console.error("createClass error:", error);
+    return await client.post<SchoolClass>("/classes", { name, teacherId: teacherId || null });
+  } catch (error: any) {
+    console.error("createClass error:", JSON.stringify(error));
     return null;
   }
 }
@@ -34,8 +35,8 @@ export async function updateClassById(
 ): Promise<SchoolClass | null> {
   try {
     return await client.put<SchoolClass>(`/classes/${id}`, updates);
-  } catch (error) {
-    console.error("updateClassById error:", error);
+  } catch (error: any) {
+    console.error("updateClassById error:", JSON.stringify(error));
     return null;
   }
 }

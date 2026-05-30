@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans_Arabic } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
+import { LanguageProvider } from '@/lib/i18n/context'
+import { AppThemeProvider } from '@/lib/theme-context'
+import { SchoolSettingsProvider } from '@/lib/school-settings-context'
+import QueryProvider from '@/lib/query-provider'
 import './globals.css'
 
 const ibmPlexArabic = IBM_Plex_Sans_Arabic({
@@ -56,11 +60,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={`${ibmPlexArabic.variable} font-sans antialiased`}>
-        {children}
-        <Toaster position="top-center" richColors />
+      <body className={`${ibmPlexArabic.variable} font-sans antialiased bg-background min-h-screen`}>
+        <QueryProvider>
+          <AppThemeProvider>
+            <LanguageProvider>
+              <SchoolSettingsProvider>
+                {children}
+                <Toaster position="top-center" richColors />
+              </SchoolSettingsProvider>
+            </LanguageProvider>
+          </AppThemeProvider>
+        </QueryProvider>
         <Analytics />
       </body>
     </html>
   )
 }
+

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Award, Calendar, TrendingUp, User, BookOpen, FileText, Download, Eye, Edit, Trash2, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -10,12 +10,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import { toast } from "sonner"
 import type { Student, Grade, Teacher, SchoolClass } from "@/lib/store"
-import { fetchStudentById, fetchGrades, fetchTeachers, fetchClasses, deleteGrade } from "@/lib/supabase-school"
-import { motion } from "framer-motion"
+import { deleteGrade } from "@/lib/supabase-school"
+import { useAdminStudent, useAdminGradesByStudent, useAdminTeachers, useAdminClasses } from "@/lib/hooks/use-admin-data"
+import { SkeletonTable } from "@/components/skeletons"
+import { motion, type Variants } from "framer-motion"
 
 const ACADEMIC_YEARS = ["2024-2025", "2023-2024", "2022-2023"]
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -23,7 +25,7 @@ const containerVariants = {
   }
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
 }
@@ -33,45 +35,17 @@ export default function StudentGradesPage() {
   const router = useRouter()
   const studentId = params.id as string
 
-  const [student, setStudent] = useState<Student | null>(null)
-  const [grades, setGrades] = useState<Grade[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
-  const [classes, setClasses] = useState<SchoolClass[]>([])
+  const { data: student, isLoading: studentLoading } = useAdminStudent(studentId)
+  const { data: gradesRaw = [] } = useAdminGradesByStudent(studentId)
+  const { data: teachers = [] } = useAdminTeachers()
+  const { data: classes = [] } = useAdminClasses()
   const [selectedYear, setSelectedYear] = useState<string>("2024-2025")
-  const [loading, setLoading] = useState(true)
+  const loading = studentLoading
 
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [studentData, gradesData, teachersData, classesData] = await Promise.all([
-        fetchStudentById(studentId),
-        fetchGrades(),
-        fetchTeachers(),
-        fetchClasses(),
-      ])
-      if (!studentData) {
-        router.push("/dashboard/students")
-        return
-      }
-      setStudent(studentData)
-      const studentGrades = gradesData.filter(g => g.studentId === studentId)
-      setGrades(studentGrades)
-      setTeachers(teachersData)
-      setClasses(classesData)
-    } catch (error) {
-      toast.error("حدث خطأ أثناء تحميل البيانات")
-    } finally {
-      setLoading(false)
-    }
-  }, [studentId, router])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
+  const grades = gradesRaw
 
   async function handleDeleteGrade(gradeId: string) {
     await deleteGrade(gradeId)
-    void reload()
     toast.success("تم حذف العلامة بنجاح")
   }
 
@@ -110,8 +84,8 @@ export default function StudentGradesPage() {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-slate-50/50">
         <div className="relative">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-650" />
-          <div className="absolute inset-0 h-12 w-12 animate-pulse rounded-full bg-indigo-500/10" />
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
+          <div className="absolute inset-0 h-12 w-12 animate-pulse rounded-full bg-violet-500/10" />
         </div>
       </div>
     )
@@ -123,7 +97,7 @@ export default function StudentGradesPage() {
         <User className="h-12 w-12 text-slate-350 mb-3" />
         <h3 className="text-lg font-bold text-slate-800 mb-1">الطالب غير موجود</h3>
         <p className="text-xs text-slate-500 mb-4">لم نتمكن من العثور على سجل الطالب المطلوب.</p>
-        <Button asChild className="bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl">
+        <Button asChild className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl">
           <Link href="/dashboard/students">العودة لقائمة الطلاب</Link>
         </Button>
       </div>
@@ -149,7 +123,7 @@ export default function StudentGradesPage() {
           <select 
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+            className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-500 font-bold"
           >
             {ACADEMIC_YEARS.map(year => (
               <option key={year} value={year}>{year}</option>
@@ -161,11 +135,11 @@ export default function StudentGradesPage() {
       {/* Student Profile Header Card */}
       <motion.div variants={itemVariants}>
         <Card className="border-slate-100 bg-white shadow-sm shadow-slate-100/40 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-5 blur-2xl bg-indigo-500 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-5 blur-2xl bg-violet-500 pointer-events-none" />
           <CardContent className="p-5 sm:p-6 relative z-10">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-              <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-indigo-100 shadow-sm flex-shrink-0">
-                <AvatarFallback className="text-base sm:text-lg font-extrabold bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600">
+              <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-violet-100 shadow-sm flex-shrink-0">
+                <AvatarFallback className="text-base sm:text-lg font-extrabold bg-gradient-to-br from-violet-50 to-violet-100 text-violet-600">
                   {student.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -176,7 +150,7 @@ export default function StudentGradesPage() {
                   <Badge variant="secondary" className="bg-slate-50 border border-slate-100 text-slate-650 rounded-lg text-xs font-semibold">
                     {getClassName(student.classId)}
                   </Badge>
-                  <Badge variant="secondary" className="bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold">
+                  <Badge variant="secondary" className="bg-violet-50 border border-violet-100 text-violet-700 rounded-lg text-xs font-semibold">
                     سجل العلامات والتحصيل
                   </Badge>
                 </div>
@@ -195,13 +169,13 @@ export default function StudentGradesPage() {
           <Card className="border-slate-100 bg-white shadow-sm shadow-slate-100/40">
             <CardHeader className="pb-2 border-b border-slate-50">
               <CardTitle className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
                 المعدل العام
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 text-center">
-              <div className="h-10 w-10 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Award className="h-5 w-5 text-indigo-500" />
+              <div className="h-10 w-10 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Award className="h-5 w-5 text-violet-500" />
               </div>
               <p className="text-3xl font-extrabold text-slate-850">{average}%</p>
               <p className="text-xs text-slate-450 mt-1 font-semibold">
@@ -214,7 +188,7 @@ export default function StudentGradesPage() {
           <Card className="border-slate-100 bg-white shadow-sm shadow-slate-100/40">
             <CardHeader className="pb-2 border-b border-slate-50">
               <CardTitle className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
                 مؤشرات الأداء
               </CardTitle>
             </CardHeader>
@@ -244,7 +218,7 @@ export default function StudentGradesPage() {
           <Card className="border-slate-100 bg-white shadow-sm shadow-slate-100/40 overflow-hidden">
             <CardHeader className="pb-2 border-b border-slate-50 bg-slate-50/20">
               <CardTitle className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
                 تفاصيل درجات المواد
               </CardTitle>
             </CardHeader>

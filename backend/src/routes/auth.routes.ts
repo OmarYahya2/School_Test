@@ -19,5 +19,6 @@ router.post("/login", authLimiter, loginValidator, validate, AuthController.logi
 router.post("/refresh", authLimiter, AuthController.refresh);
 router.post("/logout", AuthController.logout);
 router.get("/me", authenticate, AuthController.me);
+router.put("/me", authenticate, AuthController.updateMe);
 
 export default router;

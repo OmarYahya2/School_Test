@@ -8,13 +8,15 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("teacher") // "admin" or "teacher"
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          String    @default("teacher") // "admin" or "teacher"
+  teacherId     String?   @unique @map("teacher_id")
+  teacher       Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -22,8 +24,12 @@ model User {
 model Teacher {
   id                 String              @id @default(uuid())
   name               String
+  email              String?             @unique
   phone              String
   subject            String
+  isActive           Boolean             @default(true) @map("is_active")
+  assignedSubjects   String[]            @default([]) @map("assigned_subjects")
+  user               User?
   createdAt          DateTime            @default(now()) @map("created_at")
   classes            Class[]
   grades             Grade[]
@@ -35,15 +41,16 @@ model Teacher {
 }
 
 model Class {
-  id            String             @id @default(uuid())
-  name          String
-  teacherId     String?            @map("teacher_id")
-  teacher       Teacher?           @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  notes         String             @default("")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  students      Student[]
-  attendance    AttendanceRecord[]
-  scheduleItems ScheduleItem[]
+  id                 String              @id @default(uuid())
+  name               String
+  teacherId          String?             @map("teacher_id")
+  teacher            Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  notes              String              @default("")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  students           Student[]
+  attendance         AttendanceRecord[]
+  scheduleItems      ScheduleItem[]
+  teacherAssignments TeacherAssignment[]
 
   @@index([teacherId])
   @@map("classes")
@@ -61,6 +68,7 @@ model Student {
   grades      Grade[]
 
   @@index([classId])
+  @@index([name])
   @@map("students")
 }
 
@@ -92,6 +100,8 @@ model ScheduleItem {
 
   @@unique([classId, semester, dayOfWeek, periodNumber])
   @@index([teacherId])
+  @@index([classId, semester, dayOfWeek])
+  @@index([teacherId, dayOfWeek, periodNumber])
   @@map("schedule")
 }
 
@@ -112,6 +122,8 @@ model Grade {
 
   @@index([studentId])
   @@index([teacherId])
+  @@index([studentId, subject])
+  @@index([teacherId, createdAt])
   @@map("grades")
 }
 
@@ -119,13 +131,15 @@ model TeacherAssignment {
   id        String   @id @default(uuid())
   teacherId String   @map("teacher_id")
   teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId   String?  @map("class_id")
+  class     Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
   gradeId   Int      @map("grade_id")
   semester  String
   subject   String
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@unique([gradeId, semester, subject])
   @@index([teacherId])
+  @@index([classId])
   @@map("teacher_assignments")
 }
 
@@ -144,6 +158,8 @@ model SubjectFile {
 
   @@index([gradeId])
   @@index([teacherId])
+  @@index([gradeId, semester, subject])
+  @@index([teacherId, createdAt])
   @@map("subject_files")
 }
 

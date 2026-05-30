@@ -5,9 +5,18 @@ const files_service_1 = require("../services/files.service");
 const response_utils_1 = require("../utils/response.utils");
 const storage_service_1 = require("../services/storage/storage.service");
 const pagination_utils_1 = require("../utils/pagination.utils");
+const prisma_1 = require("../lib/prisma");
 class FilesController {
     static async getAll(req, res, next) {
         try {
+            if (req.teacher) {
+                const files = await prisma_1.prisma.subjectFile.findMany({
+                    where: { teacherId: req.teacher.id },
+                    include: { teacher: { select: { id: true, name: true } } },
+                    orderBy: { createdAt: "desc" },
+                });
+                return (0, response_utils_1.sendSuccess)(res, files, "Files fetched successfully");
+            }
             const { page, limit } = req.query;
             if (page || limit) {
                 const { skip, take, page: p, limit: l } = (0, pagination_utils_1.getPaginationParams)(req.query);
@@ -28,6 +37,19 @@ class FilesController {
     static async getFiltered(req, res, next) {
         try {
             const { gradeId, semester, subject } = req.query;
+            if (req.teacher) {
+                const files = await prisma_1.prisma.subjectFile.findMany({
+                    where: {
+                        teacherId: req.teacher.id,
+                        gradeId: gradeId ? parseInt(gradeId, 10) : undefined,
+                        semester: semester ? String(semester) : undefined,
+                        subject: subject ? String(subject) : undefined,
+                    },
+                    include: { teacher: { select: { id: true, name: true } } },
+                    orderBy: { createdAt: "desc" },
+                });
+                return (0, response_utils_1.sendSuccess)(res, files, "Filtered files fetched successfully");
+            }
             const files = await files_service_1.FilesService.getFilesByFilter({
                 gradeId: gradeId ? parseInt(gradeId, 10) : undefined,
                 semester: semester,
@@ -50,6 +72,12 @@ class FilesController {
     }
     static async delete(req, res, next) {
         try {
+            if (req.teacher) {
+                const fileRecord = await prisma_1.prisma.subjectFile.findUnique({ where: { id: req.params.id } });
+                if (!fileRecord || fileRecord.teacherId !== req.teacher.id) {
+                    return (0, response_utils_1.sendError)(res, "Access denied. This file is not yours.", 403);
+                }
+            }
             await files_service_1.FilesService.deleteFileRecord(req.params.id);
             return (0, response_utils_1.sendSuccess)(res, null, "File deleted successfully");
         }

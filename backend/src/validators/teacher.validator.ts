@@ -29,4 +29,8 @@ export const teacherAssignmentValidator = [
     .trim()
     .notEmpty()
     .withMessage("Subject name is required"),
+  body("classId")
+    .optional()
+    .isUUID()
+    .withMessage("Class ID must be a valid UUID"),
 ];

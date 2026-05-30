@@ -50,6 +50,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name: user.name,
+      teacherId: user.teacherId || undefined,
     };
 
     const token = generateToken(tokenPayload);
@@ -71,6 +72,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        teacherId: user.teacherId || undefined,
       },
     };
   }
@@ -86,9 +88,37 @@ export class AuthService {
       throw { status: 400, message: "Invalid email or password" };
     }
 
-    const isMatch = await comparePasswords(password, user.password);
+    let isMatch = await comparePasswords(password, user.password);
+
+    // Fallback: if password is stored in plain text (not a bcrypt hash), compare directly
+    // and re-hash it automatically for next login
+    if (!isMatch && !user.password.startsWith("$2")) {
+      if (user.password === password) {
+        const hashed = await hashPassword(password);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: hashed },
+        });
+        isMatch = true;
+      }
+    }
+
     if (!isMatch) {
       throw { status: 400, message: "Invalid email or password" };
+    }
+
+    // If user is a teacher, verify their teacher profile is active
+    if (user.role === "teacher" && user.teacherId) {
+      const teacher = await prisma.teacher.findUnique({
+        where: { id: user.teacherId },
+        select: { isActive: true },
+      });
+      if (!teacher) {
+        throw { status: 403, message: "Teacher profile not found" };
+      }
+      if (!teacher.isActive) {
+        throw { status: 403, message: "Account deactivated. Contact your administrator." };
+      }
     }
 
     const tokenPayload = {
@@ -96,6 +126,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name: user.name,
+      teacherId: user.teacherId || undefined,
     };
 
     const token = generateToken(tokenPayload);
@@ -117,6 +148,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        teacherId: user.teacherId || undefined,
       },
     };
   }
@@ -158,6 +190,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name: user.name,
+      teacherId: user.teacherId || undefined,
     };
 
     const newToken = generateToken(tokenPayload);
@@ -179,6 +212,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        teacherId: user.teacherId || undefined,
       },
     };
   }
@@ -194,6 +228,25 @@ export class AuthService {
     });
   }
 
+  static async updateProfile(id: string, data: { name?: string; email?: string }) {
+    const { name, email } = data;
+
+    if (email) {
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing && existing.id !== id) {
+        throw { status: 400, message: "Email is already in use" };
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { ...(name && { name }), ...(email && { email }) },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+
+    return updated;
+  }
+
   static async getUserById(id: string) {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -202,6 +255,7 @@ export class AuthService {
         name: true,
         email: true,
         role: true,
+        teacherId: true,
         createdAt: true,
       },
     });
