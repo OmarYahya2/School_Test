@@ -4,16 +4,15 @@ __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.js
-frontend/.next
 # testing
 /coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
 /build
