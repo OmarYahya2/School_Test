@@ -4,8 +4,7 @@ import type { SubjectFile } from "../store";
 export async function fetchSubjectFiles(): Promise<SubjectFile[]> {
   try {
     return await client.get<SubjectFile[]>("/files");
-  } catch (error) {
-    if (!(error as any)?.silent) console.error("fetchSubjectFiles error:", error);
+  } catch {
     return [];
   }
 }
@@ -22,8 +21,7 @@ export async function fetchSubjectFilesByFilter(
       subject,
     });
     return await client.get<SubjectFile[]>(`/files/filter?${params.toString()}`);
-  } catch (error) {
-    if (!(error as any)?.silent) console.error("fetchSubjectFilesByFilter error:", error);
+  } catch {
     return [];
   }
 }
@@ -49,8 +47,7 @@ export async function createSubjectFile(
       type,
       url,
     });
-  } catch (error) {
-    console.error("createSubjectFile error:", error);
+  } catch {
     return null;
   }
 }
@@ -58,8 +55,8 @@ export async function createSubjectFile(
 export async function deleteSubjectFileById(id: string): Promise<void> {
   try {
     await client.delete(`/files/${id}`);
-  } catch (error) {
-    console.error("deleteSubjectFileById error:", error);
+  } catch {
+    // silently ignore
   }
 }
 
@@ -74,8 +71,7 @@ export async function uploadSubjectFileAsset(
 
     const result = await client.post<{ url: string }>("/files/upload", formData);
     return result?.url || null;
-  } catch (error) {
-    console.error("uploadSubjectFileAsset error:", error);
+  } catch {
     return null;
   }
 }

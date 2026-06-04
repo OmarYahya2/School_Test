@@ -180,3 +180,11 @@ export async function saveTeacherAttendance(data: { classId: string; date: strin
 export async function createTeacherFile(data: Partial<TeacherFile>) {
   return client.post<TeacherFile>("/teacher/files", data);
 }
+
+export async function updateTeacherFile(id: string, data: Partial<TeacherFile>) {
+  return client.put<TeacherFile>(`/teacher/files/${id}`, data);
+}
+
+export async function deleteTeacherFile(id: string) {
+  return client.delete(`/teacher/files/${id}`);
+}

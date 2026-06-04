@@ -2,33 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { 
-  Users, 
-  BookOpen, 
-  UserCheck, 
-  TrendingUp,
-  ArrowLeft,
-  Plus,
-  Sparkles,
-  GraduationCap,
-  Calendar,
-  Clock,
-  Activity,
-  ChevronLeft,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  MoreHorizontal,
-  Bell,
-  School,
-  BarChart3,
-  MapPin,
-  Phone,
-  Mail,
-  Download,
-  ArrowUpRight,
-  TrendingDown
-} from "lucide-react"
+import { Users, BookOpen, UserCheck, ArrowLeft, Plus, Calendar, Activity, ChevronLeft, FileText, School } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

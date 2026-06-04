@@ -67,7 +67,6 @@ class TeachersController {
             return (0, response_utils_1.sendSuccess)(res, account, "Teacher account created successfully", 201);
         }
         catch (error) {
-            console.error("[createAccount] error:", error?.message || error, "body:", req.body);
             next(error);
         }
     }

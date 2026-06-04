@@ -4,8 +4,7 @@ import type { ScheduleItem } from "../store";
 export async function fetchAllSchedule(): Promise<ScheduleItem[]> {
   try {
     return await client.get<ScheduleItem[]>("/schedule");
-  } catch (error) {
-    if (!(error as any)?.silent) console.error("fetchAllSchedule error:", error);
+  } catch {
     return [];
   }
 }
@@ -17,8 +16,7 @@ export async function fetchScheduleByClass(classId: string, semester?: number): 
       return items.filter(item => item.semester === semester);
     }
     return items;
-  } catch (error) {
-    if (!(error as any)?.silent) console.error("fetchScheduleByClass error:", error);
+  } catch {
     return [];
   }
 }
@@ -44,8 +42,7 @@ export async function createScheduleItem(
       startTime,
       endTime,
     });
-  } catch (error) {
-    console.error("createScheduleItem error:", error);
+  } catch {
     return null;
   }
 }
@@ -56,8 +53,7 @@ export async function updateScheduleItem(
 ): Promise<ScheduleItem | null> {
   try {
     return await client.put<ScheduleItem>(`/schedule/${id}`, updates);
-  } catch (error) {
-    console.error("updateScheduleItem error:", error);
+  } catch {
     return null;
   }
 }
@@ -65,7 +61,7 @@ export async function updateScheduleItem(
 export async function deleteScheduleItem(id: string): Promise<void> {
   try {
     await client.delete(`/schedule/${id}`);
-  } catch (error) {
-    console.error("deleteScheduleItem error:", error);
+  } catch {
+    // silently ignore
   }
 }

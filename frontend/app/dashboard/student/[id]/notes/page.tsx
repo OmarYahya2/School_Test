@@ -1,23 +1,9 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  ArrowLeft,
-  User,
-  FileText,
-  Calendar,
-  Edit,
-  Trash2,
-  Plus,
-  Save,
-  X,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-} from "lucide-react"
+import { ArrowLeft, User, FileText, Edit, Trash2, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,8 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import type { Student, SchoolClass } from "@/lib/store"
-import { updateStudentById } from "@/lib/supabase-school"
-import { useAdminStudent, useAdminClasses } from "@/lib/hooks/use-admin-data"
+import { useAdminStudent, useAdminClasses, useUpdateStudentMutation } from "@/lib/hooks/use-admin-data"
 import { SkeletonGrid } from "@/components/skeletons"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 
@@ -86,13 +71,14 @@ export default function StudentNotesPage() {
 
   const { data: student, isLoading: studentLoading } = useAdminStudent(studentId)
   const { data: classes = [] } = useAdminClasses()
+  const updateStudent = useUpdateStudentMutation()
   const loading = studentLoading
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [newNoteContent, setNewNoteContent] = useState("")
-  const [newNoteCategory, setNewNoteCategory] = useState<Note["category"]>("general")
+  const [newNoteCategory, setNewNoteCategory] = useState<Note["category"]> ("general")
 
   const parseNotes = useCallback((notesString: string): Note[] => {
     if (!notesString) return []
@@ -141,18 +127,20 @@ export default function StudentNotesPage() {
     return classes.find(c => c.id === student.classId) || null
   }, [student, classes])
 
-  const queryClient = useQueryClient()
-
-  const saveNotes = async (updatedNotes: Note[]) => {
+  const saveNotes = (updatedNotes: Note[]) => {
     if (!student) return
-    try {
-      const notesJson = JSON.stringify(updatedNotes)
-      await updateStudentById(student.id, { notes: notesJson })
-      queryClient.invalidateQueries({ queryKey: ["admin", "student", studentId] })
-      toast.success("تم حفظ الملاحظات بنجاح")
-    } catch (error) {
-      toast.error("حدث خطأ أثناء حفظ الملاحظات")
-    }
+    const notesJson = JSON.stringify(updatedNotes)
+    updateStudent.mutate(
+      { id: student.id, updates: { notes: notesJson } },
+      {
+        onSuccess: () => {
+          toast.success("تم حفظ الملاحظات بنجاح")
+        },
+        onError: () => {
+          toast.error("حدث خطأ أثناء حفظ الملاحظات")
+        },
+      }
+    )
   }
 
   const handleAddNote = async () => {

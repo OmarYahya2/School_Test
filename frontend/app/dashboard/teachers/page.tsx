@@ -1,20 +1,12 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Trash2, UserCheck, BookOpen, GraduationCap, Phone, Pencil, ArrowUpRight, Users } from "lucide-react"
+import { useState } from "react"
+import { Trash2, UserCheck, BookOpen, GraduationCap, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -27,24 +19,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { toast } from "sonner"
 import type { Teacher, TeacherAssignment, SchoolClass } from "@/lib/store"
-import {
-  createTeacher,
-  deleteTeacherById,
-  createTeacherAssignment,
-  deleteTeacherAssignmentById,
-} from "@/lib/supabase-teachers"
-import { useAdminTeachers, useAdminClasses, useAdminTeacherAssignments } from "@/lib/hooks/use-admin-data"
+import { useAdminTeachers, useAdminClasses, useAdminTeacherAssignments, useDeleteTeacherMutation, useCreateTeacherAssignmentMutation, useDeleteTeacherAssignmentMutation } from "@/lib/hooks/use-admin-data"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
+import dynamic from "next/dynamic"
+import { subjectsList } from "./assign-teacher-dialog"
+
+const AssignTeacherDialog = dynamic(() => import("./assign-teacher-dialog"), { ssr: false })
 
 function getGradeFromClassName(name: string): number {
   const keywords: Record<string, number> = {
@@ -59,15 +42,7 @@ function getGradeFromClassName(name: string): number {
   return 1
 }
 
-const subjectsList = [
-  "اللغة العربية",
-  "اللغة الإنجليزية",
-  "الرياضيات",
-  "العلوم والحياة",
-  "التربية الدينية",
-  "الدراسات الاجتماعية",
-  "التكنولوجيا",
-]
+
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -85,9 +60,12 @@ const itemVariants: Variants = {
 export default function TeachersPage() {
   const { t, language } = useLanguage()
   const tp = t.teachersPage
-  const { data: teachers = [], isLoading: teachersLoading, refetch: refetchTeachers } = useAdminTeachers()
+  const { data: teachers = [], isLoading: teachersLoading } = useAdminTeachers()
   const { data: assignments = [] } = useAdminTeacherAssignments()
   const { data: classes = [] } = useAdminClasses()
+  const deleteTeacher = useDeleteTeacherMutation()
+  const createAssignment = useCreateTeacherAssignmentMutation()
+  const deleteAssignment = useDeleteTeacherAssignmentMutation()
   const loading = teachersLoading
   const [assignOpen, setAssignOpen] = useState(false)
 
@@ -97,14 +75,15 @@ export default function TeachersPage() {
   const [assignSemester, setAssignSemester] = useState("first")
   const [assignSubject, setAssignSubject] = useState(subjectsList[0])
 
-  const reload = useCallback(() => {
-    refetchTeachers()
-  }, [refetchTeachers])
-
   async function handleDelete(id: string) {
-    await deleteTeacherById(id)
-    void reload()
-    toast.success(tp.deleteSuccess)
+    deleteTeacher.mutate(id, {
+      onSuccess: () => {
+        toast.success(tp.deleteSuccess)
+      },
+      onError: () => {
+        toast.error(tp.deleteTeacher)
+      },
+    })
   }
 
   async function handleAssign() {
@@ -122,27 +101,36 @@ export default function TeachersPage() {
       return
     }
     const gradeId = getGradeFromClassName(selectedClass.name)
-    const created = await createTeacherAssignment(
-      assignTeacherId,
-      gradeId,
-      assignSemester,
-      assignSubject,
-      assignClassId
+    createAssignment.mutate(
+      {
+        teacherId: assignTeacherId,
+        gradeId,
+        semester: assignSemester,
+        subject: assignSubject,
+        classId: assignClassId,
+      },
+      {
+        onSuccess: () => {
+          setAssignOpen(false)
+          setAssignClassId("")
+          toast.success(tp.addSuccess)
+        },
+        onError: () => {
+          toast.error(tp.assignTeacher)
+        },
+      }
     )
-    if (!created) {
-      toast.error(tp.assignTeacher)
-      return
-    }
-    setAssignOpen(false)
-    setAssignClassId("")
-    void reload()
-    toast.success(tp.addSuccess)
   }
 
   async function handleRemoveAssignment(id: string) {
-    await deleteTeacherAssignmentById(id)
-    void reload()
-    toast.success(t.actions.delete)
+    deleteAssignment.mutate(id, {
+      onSuccess: () => {
+        toast.success(t.actions.delete)
+      },
+      onError: () => {
+        toast.error(t.actions.delete)
+      },
+    })
   }
 
   function getTeacherName(id: string): string {
@@ -180,83 +168,21 @@ export default function TeachersPage() {
                 <span>{tp.assignTeacher}</span>
               </Button>
             </DialogTrigger>
-            <DialogContent dir={language === "ar" ? "rtl" : "ltr"} className={`${language === "ar" ? "text-right" : "text-left"} bg-card border-border rounded-2xl max-w-md`}>
-              <DialogHeader>
-                <DialogTitle className="text-foreground font-extrabold text-lg flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  {tp.assignTeacher}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col gap-4 pt-2">
-                <div className="space-y-1.5">
-                  <Label className="text-muted-foreground text-xs sm:text-sm">{t.forms.selectTeacher}</Label>
-                  <Select value={assignTeacherId} onValueChange={setAssignTeacherId}>
-                    <SelectTrigger className="bg-background border-border rounded-xl h-10">
-                      <SelectValue placeholder={t.forms.selectTeacher} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teachers.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name} {t.subject ? `(${t.subject})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs sm:text-sm">{t.forms.selectClass}</Label>
-                    <Select value={assignClassId} onValueChange={setAssignClassId}>
-                      <SelectTrigger className="bg-background border-border rounded-xl h-10">
-                        <SelectValue placeholder={t.forms.selectClass} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>
-                            {cls.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs sm:text-sm">{tp.semester}</Label>
-                    <Select value={assignSemester} onValueChange={setAssignSemester}>
-                      <SelectTrigger className="bg-background border-border rounded-xl h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="first">{tp.firstSemester}</SelectItem>
-                        <SelectItem value="second">{tp.secondSemester}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-muted-foreground text-xs sm:text-sm">{tp.subject}</Label>
-                  <Select value={assignSubject} onValueChange={setAssignSubject}>
-                    <SelectTrigger className="bg-background border-border rounded-xl h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjectsList.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 justify-end pt-2">
-                  <DialogClose asChild>
-                    <Button variant="outline" className="border-border rounded-xl">{t.actions.cancel}</Button>
-                  </DialogClose>
-                  <Button onClick={handleAssign} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-5 font-bold h-10 border-0">
-                    {t.actions.confirm}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
+            {assignOpen && (
+              <AssignTeacherDialog
+                teachers={teachers}
+                classes={classes}
+                assignTeacherId={assignTeacherId}
+                setAssignTeacherId={setAssignTeacherId}
+                assignClassId={assignClassId}
+                setAssignClassId={setAssignClassId}
+                assignSemester={assignSemester}
+                setAssignSemester={setAssignSemester}
+                assignSubject={assignSubject}
+                setAssignSubject={setAssignSubject}
+                onConfirm={handleAssign}
+              />
+            )}
           </Dialog>
 
         </div>
@@ -301,107 +227,124 @@ export default function TeachersPage() {
               return (
                 <Card
                   key={teacher.id}
-                  className="border-border/50 bg-card shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden group rounded-2xl"
+                  className="border-border/40 bg-card shadow-sm hover:shadow-lg hover:border-primary/20 transition-all duration-300 relative overflow-hidden group rounded-2xl"
                 >
-                  <CardContent className="p-5 flex flex-col justify-between h-full min-h-[175px]">
-                    <div>
-                      {/* Top Header Card row */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border border-border shadow-sm">
-                            <AvatarFallback className="bg-primary/10 text-primary font-extrabold text-xs">
-                              {teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className={language === "ar" ? "text-right" : "text-left"}>
-                            <h3 className="font-bold text-foreground text-xs sm:text-sm truncate max-w-[140px]">{teacher.name}</h3>
-                            {teacher.phone && (
-                              <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-semibold mt-0.5" dir="ltr">
-                                <Phone className="h-3 w-3" />
-                                <span>{teacher.phone}</span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                  {/* Top accent bar */}
+                  <div className="h-1.5 bg-gradient-to-l from-primary/80 to-primary/30 w-full" />
 
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className={`bg-card border-border rounded-2xl ${language === "ar" ? "text-right" : "text-left"} max-w-md`}>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-foreground font-extrabold">{t.actions.delete}</AlertDialogTitle>
-                              <AlertDialogDescription className="text-muted-foreground">
-                                {t.studentsPage.deleteConfirm} &quot;{teacher.name}&quot;
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="flex gap-2 justify-end mt-2">
-                              <AlertDialogCancel className="border-border rounded-xl">{t.actions.cancel}</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(teacher.id)}
-                                className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
-                              >
-                                {t.actions.delete}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                  <CardContent className="p-5 flex flex-col justify-between h-full">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <span className="text-primary font-black text-[11px] leading-none">
+                            {teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className={language === "ar" ? "text-right" : "text-left"}>
+                          <h3 className="font-extrabold text-foreground text-sm leading-tight truncate">{teacher.name}</h3>
+                          {teacher.phone && (
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium mt-0.5" dir="ltr">
+                              <Phone className="h-2.5 w-2.5 opacity-60" />
+                              <span>{teacher.phone}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Primary Subject specialty */}
-                      {teacher.subject && (
-                        <div className="mb-3.5 flex justify-start">
-                          <Badge variant="secondary" className="bg-primary/10 border border-primary/20 text-primary rounded-lg text-[10px] font-bold">
-                            <BookOpen className="me-1 h-3 w-3" />
-                            <span>{tp.subject}: {teacher.subject}</span>
-                          </Badge>
-                        </div>
-                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 -mt-0.5 text-muted-foreground/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className={`bg-card border-border rounded-2xl ${language === "ar" ? "text-right" : "text-left"} max-w-md`}>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-foreground font-extrabold">{t.actions.delete}</AlertDialogTitle>
+                            <AlertDialogDescription className="text-muted-foreground">
+                              {t.studentsPage.deleteConfirm} &quot;{teacher.name}&quot;
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="flex gap-2 justify-end mt-2">
+                            <AlertDialogCancel className="border-border rounded-xl">{t.actions.cancel}</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(teacher.id)}
+                              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl border-0"
+                            >
+                              {t.actions.delete}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
 
-                    {/* Classes assigned list */}
-                    <div className="border-t border-border/30 pt-3 mt-auto">
-                      <p className="text-[10px] text-muted-foreground font-bold mb-1.5">{tp.assignments}:</p>
+                    {/* Assignments list */}
+                    <div className="border-t border-border/30 pt-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center">
+                          <GraduationCap className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-bold">{tp.assignments}</p>
+                      </div>
                       {teacherAssigns.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground font-medium">{tp.noAssignments}</p>
+                        <div className="flex items-center gap-2 py-3 px-2 bg-muted/30 rounded-xl">
+                          <div className="h-5 w-5 rounded bg-muted flex items-center justify-center">
+                            <BookOpen className="h-2.5 w-2.5 text-muted-foreground/40" />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/60 font-medium">{tp.noAssignments}</p>
+                        </div>
                       ) : (
-                        <div className="flex flex-wrap gap-1.5 justify-start">
-                          {teacherAssigns.slice(0, 3).map((a) => {
+                        <div className="space-y-1.5">
+                          {teacherAssigns.map((a) => {
                             const cls = classes.find((c) => {
                               const g = getGradeFromClassName(c.name)
                               return g === a.gradeId
                             })
                             return (
-                              <Badge
+                              <div
                                 key={a.id}
-                                variant="outline"
-                                className="bg-muted border-border text-muted-foreground rounded-md text-[9px] font-bold flex items-center gap-1 group/badge"
+                                className="flex items-center justify-between gap-2 bg-muted/30 hover:bg-muted/60 border border-border/40 rounded-xl px-3 py-2 transition-all group/row"
                               >
-                                <span>{a.subject} ({cls?.name || `الصف ${a.gradeId}`})</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleRemoveAssignment(a.id);
-                                  }}
-                                  className="text-muted-foreground hover:text-rose-500 rounded p-[1px] hover:bg-rose-50 dark:hover:bg-rose-950/30 flex-shrink-0"
-                                >
-                                  <Trash2 className="h-2 w-2" />
-                                </button>
-                              </Badge>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                    <BookOpen className="h-3.5 w-3.5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-foreground truncate leading-tight">
+                                      {a.subject}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground font-medium truncate leading-tight">
+                                      {cls?.name || `الصف ${a.gradeId}`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${
+                                    a.semester === "first"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  }`}>
+                                    {a.semester === "first" ? "الأول" : "الثاني"}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      void handleRemoveAssignment(a.id)
+                                    }}
+                                    className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-50 transition-all opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+                                    title="إزالة التعيين"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </div>
                             )
                           })}
-                          {teacherAssigns.length > 3 && (
-                            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[9px] rounded-md font-bold">
-                              +{teacherAssigns.length - 3}
-                            </Badge>
-                          )}
                         </div>
                       )}
                     </div>

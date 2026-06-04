@@ -4,9 +4,7 @@ import type { Teacher, TeacherAssignment } from "../store";
 export async function fetchTeachers(): Promise<Teacher[]> {
   try {
     return await client.get<Teacher[]>("/teachers");
-  } catch (error) {
-    const { status = 0, message = "Unknown error", silent = false } = (error as any) ?? {};
-    if (!silent) console.error(`fetchTeachers error [${status}]: ${message}`);
+  } catch {
     return [];
   }
 }
@@ -18,8 +16,7 @@ export async function createTeacher(
 ): Promise<Teacher | null> {
   try {
     return await client.post<Teacher>("/teachers", { name, phone, subject });
-  } catch (error) {
-    console.error("createTeacher error:", error);
+  } catch {
     return null;
   }
 }
@@ -27,17 +24,15 @@ export async function createTeacher(
 export async function deleteTeacherById(id: string): Promise<void> {
   try {
     await client.delete(`/teachers/${id}`);
-  } catch (error) {
-    console.error("deleteTeacherById error:", error);
+  } catch {
+    // silently ignore
   }
 }
 
 export async function fetchTeacherAssignments(): Promise<TeacherAssignment[]> {
   try {
     return await client.get<TeacherAssignment[]>("/teachers/assignments");
-  } catch (error) {
-    const { status = 0, message = "Unknown error", silent = false } = (error as any) ?? {};
-    if (!silent) console.error(`fetchTeacherAssignments error [${status}]: ${message}`);
+  } catch {
     return [];
   }
 }
@@ -57,8 +52,7 @@ export async function createTeacherAssignment(
       subject,
       classId,
     });
-  } catch (error: any) {
-    console.error("createTeacherAssignment error:", JSON.stringify(error));
+  } catch {
     return null;
   }
 }
@@ -66,7 +60,7 @@ export async function createTeacherAssignment(
 export async function deleteTeacherAssignmentById(id: string): Promise<void> {
   try {
     await client.delete(`/teachers/assignments/${id}`);
-  } catch (error) {
-    console.error("deleteTeacherAssignmentById error:", error);
+  } catch {
+    // silently ignore
   }
 }

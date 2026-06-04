@@ -21,6 +21,8 @@ router.get("/schedule", teacher_controller_1.TeacherController.getMySchedule);
 router.post("/attendance", teacher_controller_1.TeacherController.saveAttendance);
 router.get("/files", teacher_controller_1.TeacherController.getMyFiles);
 router.post("/files", teacher_controller_1.TeacherController.createFile);
+router.put("/files/:id", teacher_controller_1.TeacherController.updateFile);
+router.delete("/files/:id", teacher_controller_1.TeacherController.deleteFile);
 router.get("/qr", teacher_controller_1.TeacherController.getMyQR);
 router.get("/analytics", teacher_controller_1.TeacherController.getMyAnalytics);
 exports.default = router;

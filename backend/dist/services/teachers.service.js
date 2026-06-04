@@ -124,6 +124,13 @@ class TeachersService {
         if (!assignment) {
             throw { status: 404, message: "Assignment not found" };
         }
+        // If assignment had a classId, clear the class's teacherId as well
+        if (assignment.classId) {
+            await prisma_1.prisma.class.update({
+                where: { id: assignment.classId },
+                data: { teacherId: null },
+            });
+        }
         return prisma_1.prisma.teacherAssignment.delete({
             where: { id },
         });

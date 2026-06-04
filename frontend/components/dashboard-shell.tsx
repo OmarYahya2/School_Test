@@ -27,12 +27,18 @@ import {
   Settings,
   User,
 } from "lucide-react"
-import { client } from "@/lib/api/client"
 import { supabaseSignOut } from "@/lib/auth"
-import { motion, AnimatePresence } from "framer-motion"
+import { useAdminAuthUser } from "@/lib/hooks/use-admin-data"
 import { useLanguage } from "@/lib/i18n/context"
 import { useAppTheme, type ColorTheme, type DarkMode } from "@/lib/theme-context"
 import { useSchoolName } from "@/lib/school-settings-context"
+import { useAdminNotifications } from "@/lib/admin-notification-context"
+import dynamic from "next/dynamic"
+
+const NotificationsDropdown = dynamic(() => import("./dashboard/notifications-dropdown"), { ssr: false })
+const ThemeDropdown = dynamic(() => import("./dashboard/theme-dropdown"), { ssr: false })
+const LanguageDropdown = dynamic(() => import("./dashboard/language-dropdown"), { ssr: false })
+const UserDropdown = dynamic(() => import("./dashboard/user-dropdown"), { ssr: false })
 
 interface SessionUser { id: string; name: string; email: string; role?: string }
 
@@ -96,8 +102,9 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   const { t, language, setLanguage, isRTL } = useLanguage()
   const { config, setColor, setMode, isDark } = useAppTheme()
   const { schoolName } = useSchoolName()
+  const { notifications, unreadCount, markAsRead, markAllRead } = useAdminNotifications()
 
-  const [user, setUser] = useState<SessionUser | null>(null)
+  const { data: user, isLoading: userLoading } = useAdminAuthUser()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -111,11 +118,17 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    client.get<SessionUser>("/auth/me")
-      .then(setUser)
-      .catch(() => { window.location.href = "/login" })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // RBAC: redirect unauthenticated to login, teachers away from admin routes
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push("/login")
+    }
+    if (!userLoading && user && user.role === "teacher") {
+      router.push("/teacher")
+    }
+  }, [user, userLoading, router])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -133,7 +146,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     router.push("/")
   }
 
-  if (!mounted || !user) {
+  if (!mounted || userLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="relative">
@@ -142,6 +155,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   const allNavItems = [overviewItem, ...academicItems, ...educationalItems]
@@ -188,27 +205,16 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     )
   }
 
-  const dropdownVariants = {
-    hidden: { opacity: 0, y: -8, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.15, ease: "easeOut" as const } },
-    exit: { opacity: 0, y: -8, scale: 0.95, transition: { duration: 0.1 } },
-  }
-
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
 
       {/* Mobile overlay */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      <div
+        className={`fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm md:hidden transition-opacity duration-300 ${
+          sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
 
       {/* ════════════════════════════════
           SIDEBAR
@@ -356,37 +362,14 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </button>
 
-                <AnimatePresence>
-                  {langMenuOpen && (
-                    <motion.div
-                      variants={dropdownVariants}
-                      initial="hidden" animate="visible" exit="exit"
-                      className={`absolute ${isRTL ? "left-0" : "right-0"} top-full mt-2 w-44 rounded-2xl bg-popover border border-border shadow-xl shadow-foreground/10 p-1.5 z-50`}
-                    >
-                      <p className="px-2.5 py-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">{t.language.label}</p>
-                      {[
-                        { id: "ar" as const, label: t.language.arabic,  flag: "🇵🇸" },
-                        { id: "en" as const, label: t.language.english, flag: "🇺🇸" },
-                      ].map((lang) => (
-                        <button
-                          key={lang.id}
-                          onClick={() => { setLanguage(lang.id); setLangMenuOpen(false) }}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                            language === lang.id
-                              ? "bg-primary/10 text-primary"
-                              : "text-foreground hover:bg-accent"
-                          }`}
-                        >
-                          <span className="text-base">{lang.flag}</span>
-                          <span className="flex-1 text-start">{lang.label}</span>
-                          {language === lang.id && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                          )}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <LanguageDropdown
+                  isOpen={langMenuOpen}
+                  isRTL={isRTL}
+                  t={t}
+                  language={language}
+                  setLanguage={setLanguage}
+                  closeMenu={() => setLangMenuOpen(false)}
+                />
               </div>
 
               {/* ── Theme Switcher ── */}
@@ -400,71 +383,15 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </button>
 
-                <AnimatePresence>
-                  {themeMenuOpen && (
-                    <motion.div
-                      variants={dropdownVariants}
-                      initial="hidden" animate="visible" exit="exit"
-                      className={`absolute ${isRTL ? "left-0" : "right-0"} top-full mt-2 w-56 rounded-2xl bg-popover border border-border shadow-xl shadow-foreground/10 p-2 z-50`}
-                    >
-                      {/* Mode row */}
-                      <p className="px-2 py-1 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">{t.theme.label}</p>
-                      <div className="flex gap-1 p-1 bg-muted/50 rounded-xl mb-3">
-                        {([
-                          { id: "light" as DarkMode, icon: Sun,     label: t.theme.light  },
-                          { id: "dark"  as DarkMode, icon: Moon,    label: t.theme.dark   },
-                          { id: "system"as DarkMode, icon: Monitor, label: t.theme.system },
-                        ] as const).map(({ id, icon: Icon, label }) => (
-                          <button
-                            key={id}
-                            onClick={() => setMode(id)}
-                            className={`flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-[9px] font-bold transition-all duration-150 ${
-                              config.mode === id
-                                ? "bg-background text-primary shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Color swatches */}
-                      <p className="px-2 py-1 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                        <Palette className="h-2.5 w-2.5 inline-block me-1" />
-                        {isRTL ? "لون التطبيق" : "App Color"}
-                      </p>
-                      <div className="grid grid-cols-5 gap-1.5 px-1 pb-1">
-                        {colorThemes.map(({ id, swatch }) => (
-                          <button
-                            key={id}
-                            onClick={() => setColor(id)}
-                            title={t.theme[id]}
-                            className={`relative h-7 w-full rounded-lg ${swatch} transition-all duration-150 hover:scale-110 ${
-                              config.color === id
-                                ? "ring-2 ring-offset-2 ring-foreground/30 scale-110"
-                                : "opacity-70 hover:opacity-100"
-                            }`}
-                          >
-                            {config.color === id && (
-                              <span className="absolute inset-0 flex items-center justify-center">
-                                <span className="h-2 w-2 rounded-full bg-white shadow-sm" />
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex justify-between px-1 mt-0.5">
-                        {colorThemes.map(({ id }) => (
-                          <span key={id} className="text-[8px] text-muted-foreground/50 text-center flex-1 font-medium">
-                            {t.theme[id]}
-                          </span>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <ThemeDropdown
+                  isOpen={themeMenuOpen}
+                  isRTL={isRTL}
+                  t={t}
+                  config={config}
+                  setMode={setMode}
+                  setColor={setColor}
+                  colorThemes={colorThemes}
+                />
               </div>
 
               {/* ── Notifications ── */}
@@ -475,42 +402,20 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   aria-label="notifications"
                 >
                   <Bell className="h-4 w-4" />
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
+                  )}
                 </button>
 
-                <AnimatePresence>
-                  {notificationsOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
-                      <motion.div
-                        variants={dropdownVariants}
-                        initial="hidden" animate="visible" exit="exit"
-                        className={`absolute ${isRTL ? "left-0" : "right-0"} top-full mt-2 w-80 rounded-2xl bg-popover border border-border shadow-xl shadow-foreground/10 p-2 z-50`}
-                      >
-                        <div className="flex items-center justify-between px-2.5 pb-2 border-b border-border mb-1">
-                          <span className="text-xs font-bold text-foreground">{t.header.notifications}</span>
-                          <span className="text-[10px] text-primary font-semibold cursor-pointer hover:opacity-80 transition-opacity">
-                            {t.header.markAllRead}
-                          </span>
-                        </div>
-                        <div className="space-y-0.5 max-h-60 overflow-y-auto">
-                          {[
-                            { title: t.header.notif1, time: t.header.notif1Time },
-                            { title: t.header.notif2, time: t.header.notif2Time },
-                          ].map((n, i) => (
-                            <div key={i} className="flex items-start gap-3 px-2.5 py-2.5 hover:bg-accent rounded-xl transition-colors cursor-pointer group">
-                              <div className="h-2 w-2 mt-1.5 flex-shrink-0 rounded-full bg-primary" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-foreground font-semibold leading-snug">{n.title}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+                <NotificationsDropdown
+                  isOpen={notificationsOpen}
+                  isRTL={isRTL}
+                  t={t}
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  markAsRead={markAsRead}
+                  markAllRead={markAllRead}
+                />
               </div>
 
               {/* ── User Menu ── */}
@@ -531,58 +436,15 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
                 </button>
 
-                <AnimatePresence>
-                  {userMenuOpen && (
-                    <motion.div
-                      variants={dropdownVariants}
-                      initial="hidden" animate="visible" exit="exit"
-                      className={`absolute ${isRTL ? "left-0" : "right-0"} top-full mt-2 w-52 rounded-2xl bg-popover border border-border shadow-xl shadow-foreground/10 p-1.5 z-50`}
-                    >
-                      {/* User info */}
-                      <div className="px-3 py-2.5 border-b border-border mb-1">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white font-bold text-xs shadow-sm"
-                            style={{ background: "linear-gradient(135deg, var(--theme-grad-from), var(--theme-grad-to))" }}
-                          >
-                            {userInitials}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-foreground truncate">{user.name}</p>
-                            <p className="text-[10px] text-primary font-semibold">{t.user.role}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Menu items */}
-                      <Link
-                        href="/dashboard/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-accent hover:text-foreground transition-all"
-                      >
-                        <User className="h-3.5 w-3.5" />
-                        {isRTL ? "الملف الشخصي" : "Profile"}
-                      </Link>
-                      <Link
-                        href="/dashboard/settings"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-accent hover:text-foreground transition-all"
-                      >
-                        <Settings className="h-3.5 w-3.5" />
-                        {isRTL ? "الإعدادات" : "Settings"}
-                      </Link>
-
-                      <div className="border-t border-border my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all"
-                      >
-                        <LogOut className="h-3.5 w-3.5" />
-                        {t.user.logout}
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <UserDropdown
+                  isOpen={userMenuOpen}
+                  isRTL={isRTL}
+                  t={t}
+                  user={user}
+                  userInitials={userInitials}
+                  handleLogout={handleLogout}
+                  closeMenu={() => setUserMenuOpen(false)}
+                />
               </div>
             </div>
           </div>
@@ -596,3 +458,4 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     </div>
   )
 }
+

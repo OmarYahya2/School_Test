@@ -1,7 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
-
 export function SkeletonCard({ className = "" }: { className?: string }) {
   return (
     <div className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
@@ -46,12 +44,10 @@ export function SkeletonGrid({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       {Array.from({ length: count }).map((_, i) => (
-        <motion.div
+        <div
           key={i}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: i * 0.05 }}
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm animate-in fade-in"
+          style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}
         >
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 animate-pulse rounded-2xl bg-slate-100" />
@@ -60,7 +56,7 @@ export function SkeletonGrid({ count = 6 }: { count?: number }) {
               <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
             </div>
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   )

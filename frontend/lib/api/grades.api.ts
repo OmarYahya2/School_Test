@@ -4,8 +4,7 @@ import type { Grade } from "../store";
 export async function fetchGrades(): Promise<Grade[]> {
   try {
     return await client.get<Grade[]>("/grades");
-  } catch (error: any) {
-    console.error("fetchGrades error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
@@ -13,8 +12,7 @@ export async function fetchGrades(): Promise<Grade[]> {
 export async function fetchGradesByStudent(studentId: string): Promise<Grade[]> {
   try {
     return await client.get<Grade[]>(`/grades/student/${studentId}`);
-  } catch (error: any) {
-    console.error("fetchGradesByStudent error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
@@ -22,8 +20,7 @@ export async function fetchGradesByStudent(studentId: string): Promise<Grade[]> 
 export async function fetchGradesByClass(classId: string): Promise<Grade[]> {
   try {
     return await client.get<Grade[]>(`/grades/class/${classId}`);
-  } catch (error) {
-    console.error("fetchGradesByClass error:", error);
+  } catch {
     return [];
   }
 }
@@ -51,8 +48,7 @@ export async function createGrade(
       teacherId,
       notes,
     });
-  } catch (error) {
-    console.error("createGrade error:", error);
+  } catch {
     return null;
   }
 }
@@ -63,8 +59,7 @@ export async function updateGrade(
 ): Promise<Grade | null> {
   try {
     return await client.put<Grade>(`/grades/${id}`, updates);
-  } catch (error) {
-    console.error("updateGrade error:", error);
+  } catch {
     return null;
   }
 }
@@ -72,7 +67,7 @@ export async function updateGrade(
 export async function deleteGrade(id: string): Promise<void> {
   try {
     await client.delete(`/grades/${id}`);
-  } catch (error) {
-    console.error("deleteGrade error:", error);
+  } catch {
+    // silently ignore
   }
 }

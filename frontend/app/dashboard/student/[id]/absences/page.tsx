@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Calendar, User, XCircle, CheckCircle, AlertCircle, Clock, Eye, Edit, Download, FileText, TrendingUp, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Calendar, User, XCircle, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -185,31 +185,25 @@ export default function StudentAbsencesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              {absences.length === 0 ? (
+              {absences.filter(a => a.status === "غائب").length === 0 ? (
                 <div className="text-center py-8">
                   <Calendar className="h-9 w-9 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs text-slate-550 font-bold">لا يوجد سجلات حضور مسجلة لهذا الطالب</p>
+                  <p className="text-xs text-slate-550 font-bold">لا توجد غيابات مسجلة لهذا الطالب</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {absences.map((record) => (
+                  {absences.filter(a => a.status === "غائب").map((record) => (
                     <div key={record.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-55/40 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          record.status === "حاضر" ? "bg-emerald-55/15 text-emerald-600" : "bg-rose-55/15 text-rose-600"
-                        }`}>
-                          {record.status === "حاضر" ? <CheckCircle className="h-4.5 w-4.5" /> : <XCircle className="h-4.5 w-4.5" />}
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-rose-55/15 text-rose-600`}>
+                          <XCircle className="h-4.5 w-4.5" />
                         </div>
                         <div className="text-right">
                           <p className="text-xs sm:text-sm font-bold text-slate-800">{record.date}</p>
                           <p className="text-[10px] text-slate-400 font-semibold">الحالة: {record.status}</p>
                         </div>
                       </div>
-                      <Badge className={`text-[10px] font-bold rounded-lg border ${
-                        record.status === "حاضر" 
-                          ? "bg-emerald-50 border-emerald-100 text-emerald-700" 
-                          : "bg-rose-50 border-rose-100 text-rose-700"
-                      }`}>
+                      <Badge className={`text-[10px] font-bold rounded-lg border bg-rose-50 border-rose-100 text-rose-700`}>
                         {record.status}
                       </Badge>
                     </div>

@@ -4,28 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  Plus,
-  Trash2,
-  ArrowLeft,
-  UserCircle,
-  ClipboardCheck,
-  Activity,
-  Users,
-  BookOpen,
-  GraduationCap,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  Edit3,
-  Download,
-  Search,
-  FileText,
-  StickyNote,
-  UserCheck,
-  ChevronLeft,
-} from "lucide-react"
+import { Plus, Trash2, ArrowLeft, ClipboardCheck, Users, BookOpen, GraduationCap, Calendar, CheckCircle, XCircle, TrendingUp, Edit3, Search, FileText, StickyNote } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -55,13 +34,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import type { SchoolClass, Student, Teacher } from "@/lib/store"
-import {
-  createStudent,
-  deleteStudentById,
-  saveAttendanceRecord,
-  updateStudentById,
-} from "@/lib/supabase-school"
-import { useAdminClass, useAdminStudentsByClass, useAdminTeachers, useAdminAttendanceByClass } from "@/lib/hooks/use-admin-data"
+import { updateStudentById } from "@/lib/supabase-school"
+import { useAdminClass, useAdminStudentsByClass, useAdminTeachers, useAdminAttendanceByClass, useCreateStudentMutation, useDeleteStudentMutation, useSaveAttendanceMutation } from "@/lib/hooks/use-admin-data"
 import { SkeletonTable } from "@/components/skeletons"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 
@@ -103,6 +77,9 @@ export default function ClassDetailPage() {
   const { data: students = [], isLoading: studentsLoading } = useAdminStudentsByClass(classId)
   const { data: teachers = [] } = useAdminTeachers()
   const { data: attendance = [] } = useAdminAttendanceByClass(classId)
+  const createStudent = useCreateStudentMutation()
+  const deleteStudent = useDeleteStudentMutation()
+  const saveAttendance = useSaveAttendanceMutation()
   const loading = classLoading || studentsLoading
   const [addOpen, setAddOpen] = useState(false)
 
@@ -170,11 +147,26 @@ export default function ClassDetailPage() {
   const saveNotes = async (student: Student, updatedNotes: Note[]) => {
     try {
       const notesJson = JSON.stringify(updatedNotes)
-      await updateStudentById(student.id, { notes: notesJson })
-      void reload()
+      const result = await updateStudentById(student.id, {
+        name: student.name,
+        age: student.age,
+        classId: student.classId,
+        parentPhone: student.parentPhone,
+        notes: notesJson,
+      })
+      if (!result) {
+        toast.error("فشل حفظ الملاحظات: لم يتم تحديث بيانات الطالب")
+        throw new Error("Update failed")
+      }
+      // Update local cache instantly without refetching
+      queryClient.setQueryData<Student[]>(["admin", "students", "class", classId], (old) =>
+        old ? old.map((s) => (s.id === student.id ? { ...s, notes: notesJson } : s)) : old
+      )
       toast.success("تم حفظ الملاحظات بنجاح")
+      return true
     } catch (error) {
       toast.error("حدث خطأ أثناء حفظ الملاحظات")
+      throw error
     }
   }
 
@@ -194,10 +186,14 @@ export default function ClassDetailPage() {
     const currentNotes = parseNotes(selectedStudentForNotes.notes || "")
     const updatedNotes = [newNote, ...currentNotes]
 
-    await saveNotes(selectedStudentForNotes, updatedNotes)
-    setStudentNotes(updatedNotes)
-    setNewNoteContent("")
-    setNewNoteCategory("general")
+    try {
+      await saveNotes(selectedStudentForNotes, updatedNotes)
+      setStudentNotes(updatedNotes)
+      setNewNoteContent("")
+      setNewNoteCategory("general")
+    } catch {
+      // keep fields and state unchanged on failure
+    }
   }
 
   const handleEditNote = async () => {
@@ -213,11 +209,15 @@ export default function ClassDetailPage() {
         : note
     )
 
-    await saveNotes(selectedStudentForNotes, updatedNotes)
-    setStudentNotes(updatedNotes)
-    setEditingNote(null)
-    setNewNoteContent("")
-    setEditNoteDialogOpen(false)
+    try {
+      await saveNotes(selectedStudentForNotes, updatedNotes)
+      setStudentNotes(updatedNotes)
+      setEditingNote(null)
+      setNewNoteContent("")
+      setEditNoteDialogOpen(false)
+    } catch {
+      // keep fields and state unchanged on failure
+    }
   }
 
   const handleDeleteNote = async (noteId: string) => {
@@ -226,8 +226,12 @@ export default function ClassDetailPage() {
     const currentNotes = parseNotes(selectedStudentForNotes.notes || "")
     const updatedNotes = currentNotes.filter((note) => note.id !== noteId)
 
-    await saveNotes(selectedStudentForNotes, updatedNotes)
-    setStudentNotes(updatedNotes)
+    try {
+      await saveNotes(selectedStudentForNotes, updatedNotes)
+      setStudentNotes(updatedNotes)
+    } catch {
+      // keep state unchanged on failure
+    }
   }
 
   const openNotesDialog = (student: Student) => {
@@ -302,12 +306,6 @@ export default function ClassDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attendance, attendanceDate, students])
 
-  const reload = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["admin", "class", classId] })
-    queryClient.invalidateQueries({ queryKey: ["admin", "students", "class", classId] })
-    queryClient.invalidateQueries({ queryKey: ["admin", "attendance", "class", classId] })
-  }, [queryClient, classId])
-
   async function handleAddStudent() {
     if (!newName.trim()) {
       toast.error("يرجى إدخال اسم الطالب")
@@ -318,30 +316,39 @@ export default function ClassDetailPage() {
       toast.error("يرجى إدخال عمر صحيح (3-25)")
       return
     }
-    const created = await createStudent(
-      newName.trim(),
-      age,
-      classId,
-      newParentPhone.trim(),
-      newNotes.trim()
+    createStudent.mutate(
+      {
+        name: newName.trim(),
+        age,
+        classId,
+        parentPhone: newParentPhone.trim(),
+        notes: newNotes.trim(),
+      },
+      {
+        onSuccess: () => {
+          setNewName("")
+          setNewAge("")
+          setNewParentPhone("")
+          setNewNotes("")
+          setAddOpen(false)
+          toast.success("تمت إضافة الطالب بنجاح")
+        },
+        onError: () => {
+          toast.error("حدث خطأ أثناء إضافة الطالب")
+        },
+      }
     )
-    if (!created) {
-      toast.error("حدث خطأ أثناء إضافة الطالب")
-      return
-    }
-    setNewName("")
-    setNewAge("")
-    setNewParentPhone("")
-    setNewNotes("")
-    setAddOpen(false)
-    void reload()
-    toast.success("تمت إضافة الطالب بنجاح")
   }
 
   async function handleDeleteStudent(id: string) {
-    await deleteStudentById(id)
-    void reload()
-    toast.success("تم حذف الطالب بنجاح")
+    deleteStudent.mutate(id, {
+      onSuccess: () => {
+        toast.success("تم حذف الطالب بنجاح")
+      },
+      onError: () => {
+        toast.error("حدث خطأ أثناء حذف الطالب")
+      },
+    })
   }
 
   async function handleSaveAttendance() {
@@ -349,13 +356,17 @@ export default function ClassDetailPage() {
       studentId: s.id,
       present: attendanceMap[s.id] ?? true,
     }))
-    const saved = await saveAttendanceRecord(classId, attendanceDate, records)
-    if (!saved) {
-      toast.error("حدث خطأ أثناء حفظ الحضور")
-      return
-    }
-    void reload()
-    toast.success("تم حفظ الحضور بنجاح")
+    saveAttendance.mutate(
+      { classId, date: attendanceDate, records },
+      {
+        onSuccess: () => {
+          toast.success("تم حفظ الحضور بنجاح")
+        },
+        onError: () => {
+          toast.error("حدث خطأ أثناء حفظ الحضور")
+        },
+      }
+    )
   }
 
   function toggleAttendance(studentId: string) {
@@ -635,7 +646,7 @@ export default function ClassDetailPage() {
             ) : (
               <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-right">
+                  <table className="w-full text-sm text-right" dir="rtl">
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
                         <th className="px-6 py-4 font-bold text-foreground text-xs">اسم الطالب</th>
@@ -699,7 +710,7 @@ export default function ClassDetailPage() {
                                     <span>{notesCount > 0 ? `${notesCount} ملاحظات` : "إضافة ملاحظة"}</span>
                                   </button>
                                 </td>
-                                <td className="px-6 py-4 text-left">
+                                <td className="px-6 py-4 text-right">
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <button className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
@@ -747,7 +758,7 @@ export default function ClassDetailPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="attendance" className="mt-0 outline-none space-y-4">
+          <TabsContent value="attendance" className="mt-0 outline-none space-y-4" dir="rtl">
             <div className="grid gap-6 lg:grid-cols-3 items-start">
               {/* Daily Attendance Sheet */}
               <div className="lg:col-span-2 space-y-4">
@@ -777,7 +788,7 @@ export default function ClassDetailPage() {
                         <p className="text-sm font-semibold">لا يوجد طلاب بالصف حالياً لتسجيل الحضور</p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2" dir="rtl">
                         {students
                           .filter((student) =>
                             studentSearch === "" ||
@@ -864,7 +875,7 @@ export default function ClassDetailPage() {
                         <p className="text-xs font-semibold">لا توجد سجلات حضور من 27 مايو 2026</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-3" dir="rtl">
                         {attendance
                           .filter(a => a.date >= "2026-05-27")
                           .sort((a, b) => b.date.localeCompare(a.date))

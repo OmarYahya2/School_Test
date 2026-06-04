@@ -65,7 +65,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       const refreshToken = localStorage.getItem("refresh_token");
       if (!refreshToken) {
         localStorage.removeItem("auth_token");
-        if (window.location.pathname.startsWith("/dashboard")) {
+        const path = window.location.pathname;
+        if (path.startsWith("/dashboard") || path.startsWith("/teacher")) {
           window.location.href = "/login";
         }
         throw {

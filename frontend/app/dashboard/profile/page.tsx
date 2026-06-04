@@ -17,8 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { useLanguage } from "@/lib/i18n/context"
 import { useSchoolName } from "@/lib/school-settings-context"
-import { client } from "@/lib/api/client"
-import { useAdminAuthUser, useAdminAnalytics, useAdminStudents } from "@/lib/hooks/use-admin-data"
+import { useAdminAuthUser, useAdminAnalytics, useAdminStudents, useUpdateAdminProfileMutation } from "@/lib/hooks/use-admin-data"
 import { SkeletonProfile } from "@/components/skeletons"
 
 interface AuthUser { id: string; name: string; email: string; role?: string; createdAt?: string }
@@ -46,7 +45,8 @@ export default function ProfilePage() {
   const [editMode, setEditMode] = useState(false)
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
-  const [saving, setSaving] = useState(false)
+
+  const updateProfile = useUpdateAdminProfileMutation()
 
   function openEdit() {
     setEditName(user?.name ?? "")
@@ -65,16 +65,18 @@ export default function ProfilePage() {
       toast.error(isRTL ? "الاسم لا يمكن أن يكون فارغاً" : "Name cannot be empty")
       return
     }
-    setSaving(true)
-    try {
-      await client.put("/auth/me", { name: editName.trim(), email: editEmail.trim() })
-      setEditMode(false)
-      toast.success(isRTL ? "تم تحديث الملف الشخصي" : "Profile updated successfully")
-    } catch {
-      toast.error(isRTL ? "فشل التحديث. حاول مرة أخرى" : "Update failed. Please try again")
-    } finally {
-      setSaving(false)
-    }
+    updateProfile.mutate(
+      { name: editName.trim(), email: editEmail.trim() },
+      {
+        onSuccess: () => {
+          setEditMode(false)
+          toast.success(isRTL ? "تم تحديث الملف الشخصي" : "Profile updated successfully")
+        },
+        onError: () => {
+          toast.error(isRTL ? "فشل التحديث. حاول مرة أخرى" : "Update failed. Please try again")
+        },
+      }
+    )
   }
 
   const initials = user?.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() ?? "AD"
@@ -217,8 +219,8 @@ export default function ProfilePage() {
                   <Button onClick={cancelEdit} variant="outline" size="sm" className="rounded-xl border-border/60">
                     {isRTL ? "إلغاء" : "Cancel"}
                   </Button>
-                  <Button onClick={saveProfile} disabled={saving} size="sm" className="rounded-xl gap-1.5 text-white" style={{ background: "linear-gradient(135deg, var(--theme-grad-from), var(--theme-grad-to))" }}>
-                    {saving ? <div className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                  <Button onClick={saveProfile} disabled={updateProfile.isPending} size="sm" className="rounded-xl gap-1.5 text-white" style={{ background: "linear-gradient(135deg, var(--theme-grad-from), var(--theme-grad-to))" }}>
+                    {updateProfile.isPending ? <div className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
                     {isRTL ? "حفظ" : "Save"}
                   </Button>
                 </div>

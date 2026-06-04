@@ -9,6 +9,19 @@ export interface AuthUser {
   createdAt: string;
 }
 
+function setAuthCookies(token: string, role: string) {
+  if (typeof window === "undefined") return
+  const secure = window.location.protocol === "https:" ? "; Secure" : ""
+  document.cookie = `auth_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}${secure}`
+  document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}${secure}`
+}
+
+function clearAuthCookies() {
+  if (typeof window === "undefined") return
+  document.cookie = "auth_token=; path=/; max-age=0"
+  document.cookie = "user_role=; path=/; max-age=0"
+}
+
 export async function apiSignUp(
   name: string,
   email: string,
@@ -27,12 +40,12 @@ export async function apiSignUp(
         if (result.refreshToken) {
           localStorage.setItem("refresh_token", result.refreshToken);
         }
+        setAuthCookies(result.token, result.user.role);
       }
       return result.user;
     }
     return null;
-  } catch (error) {
-    console.error("Sign up failed:", error);
+  } catch {
     return null;
   }
 }
@@ -53,12 +66,12 @@ export async function apiSignIn(
         if (result.refreshToken) {
           localStorage.setItem("refresh_token", result.refreshToken);
         }
+        setAuthCookies(result.token, result.user.role);
       }
       return result.user;
     }
     return null;
-  } catch (error) {
-    console.error("Sign in failed:", error);
+  } catch {
     return null;
   }
 }
@@ -71,5 +84,6 @@ export async function apiSignOut(): Promise<void> {
     }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
+    clearAuthCookies();
   }
 }

@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  Settings, Palette, Bell, Shield, Globe, Server,
-  Sun, Moon, Monitor, ChevronRight, Save, Check,
-  School, Mail, Clock, Eye, EyeOff, Key,
-  Smartphone, AlertTriangle, Database, HardDrive,
-  RefreshCw, Info, Zap, CheckCircle, BookOpen,
-  Users, Activity, MapPin,
-} from "lucide-react"
+import { Settings, Palette, Bell, Shield, Globe, Server, Sun, Moon, Monitor, ChevronRight, Save, Check, School, Mail, Clock, Eye, EyeOff, Key, Smartphone, AlertTriangle, Database, HardDrive, Info, Zap, CheckCircle, BookOpen, Users, Activity, MapPin } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"

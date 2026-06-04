@@ -68,8 +68,7 @@ export class ClassesController {
     try {
       const schoolClass = await ClassesService.updateClass(req.params.id, req.body);
       return sendSuccess(res, schoolClass, "Class updated successfully");
-    } catch (error: any) {
-      console.error("[ClassesController.update] error:", error?.message || error, "body:", req.body);
+    } catch (error) {
       next(error);
     }
   }

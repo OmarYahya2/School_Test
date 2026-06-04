@@ -63,7 +63,6 @@ class ClassesController {
             return (0, response_utils_1.sendSuccess)(res, schoolClass, "Class updated successfully");
         }
         catch (error) {
-            console.error("[ClassesController.update] error:", error?.message || error, "body:", req.body);
             next(error);
         }
     }

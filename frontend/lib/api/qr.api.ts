@@ -14,8 +14,7 @@ export async function generateQRToken(
 ): Promise<QRGenerateResult | null> {
   try {
     return await client.post<QRGenerateResult>("/qr/generate", { gradeId });
-  } catch (error) {
-    console.error("generateQRToken error:", error);
+  } catch {
     return null;
   }
 }
@@ -27,8 +26,7 @@ export async function verifyQRToken(
     return await client.get<QRVerifyResult>(
       `/qr/verify?token=${encodeURIComponent(token)}`
     );
-  } catch (error) {
-    if (!(error as any)?.silent) console.error("verifyQRToken error:", error);
+  } catch {
     return null;
   }
 }

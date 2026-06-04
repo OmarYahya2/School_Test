@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Award, Calendar, TrendingUp, User, BookOpen, FileText, Download, Eye, Edit, Trash2, Plus } from "lucide-react"
+import { ArrowLeft, Award, User, BookOpen, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,12 +10,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import { toast } from "sonner"
 import type { Student, Grade, Teacher, SchoolClass } from "@/lib/store"
-import { deleteGrade } from "@/lib/supabase-school"
-import { useAdminStudent, useAdminGradesByStudent, useAdminTeachers, useAdminClasses } from "@/lib/hooks/use-admin-data"
+import { useAdminStudent, useAdminGradesByStudent, useAdminTeachers, useAdminClasses, useDeleteGradeMutation } from "@/lib/hooks/use-admin-data"
 import { SkeletonTable } from "@/components/skeletons"
 import { motion, type Variants } from "framer-motion"
 
-const ACADEMIC_YEARS = ["2024-2025", "2023-2024", "2022-2023"]
+const ACADEMIC_YEARS = ["2026", "2025", "2024-2025", "2023-2024"]
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -39,14 +38,21 @@ export default function StudentGradesPage() {
   const { data: gradesRaw = [] } = useAdminGradesByStudent(studentId)
   const { data: teachers = [] } = useAdminTeachers()
   const { data: classes = [] } = useAdminClasses()
-  const [selectedYear, setSelectedYear] = useState<string>("2024-2025")
+  const deleteGrade = useDeleteGradeMutation()
+  const [selectedYear, setSelectedYear] = useState<string>("2026")
   const loading = studentLoading
 
   const grades = gradesRaw
 
   async function handleDeleteGrade(gradeId: string) {
-    await deleteGrade(gradeId)
-    toast.success("تم حذف العلامة بنجاح")
+    deleteGrade.mutate(gradeId, {
+      onSuccess: () => {
+        toast.success("تم حذف العلامة بنجاح")
+      },
+      onError: () => {
+        toast.error("حدث خطأ أثناء حذف العلامة")
+      },
+    })
   }
 
   function getTeacherName(teacherId: string | null): string {

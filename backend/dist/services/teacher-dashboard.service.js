@@ -289,6 +289,27 @@ class TeacherDashboardService {
             include: { teacher: { select: { id: true, name: true } } },
         });
     }
+    static async updateFileForTeacher(teacherId, fileId, data) {
+        const file = await prisma_1.prisma.subjectFile.findUnique({ where: { id: fileId } });
+        if (!file || file.teacherId !== teacherId)
+            throw { status: 403, message: "File not found or not yours" };
+        return prisma_1.prisma.subjectFile.update({
+            where: { id: fileId },
+            data: {
+                title: data.title,
+                description: data.description,
+                type: data.type,
+                url: data.url,
+            },
+            include: { teacher: { select: { id: true, name: true } } },
+        });
+    }
+    static async deleteFileForTeacher(teacherId, fileId) {
+        const file = await prisma_1.prisma.subjectFile.findUnique({ where: { id: fileId } });
+        if (!file || file.teacherId !== teacherId)
+            throw { status: 403, message: "File not found or not yours" };
+        return prisma_1.prisma.subjectFile.delete({ where: { id: fileId } });
+    }
 }
 exports.TeacherDashboardService = TeacherDashboardService;
 //# sourceMappingURL=teacher-dashboard.service.js.map

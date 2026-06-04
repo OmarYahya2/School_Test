@@ -191,6 +191,28 @@ class TeacherController {
             next(error);
         }
     }
+    static async updateFile(req, res, next) {
+        try {
+            if (!req.teacher)
+                return res.status(403).json({ success: false, message: "Teacher profile not found" });
+            const file = await teacher_dashboard_service_1.TeacherDashboardService.updateFileForTeacher(req.teacher.id, req.params.id, req.body);
+            return (0, response_utils_1.sendSuccess)(res, file, "File updated successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async deleteFile(req, res, next) {
+        try {
+            if (!req.teacher)
+                return res.status(403).json({ success: false, message: "Teacher profile not found" });
+            await teacher_dashboard_service_1.TeacherDashboardService.deleteFileForTeacher(req.teacher.id, req.params.id);
+            return (0, response_utils_1.sendSuccess)(res, null, "File deleted successfully");
+        }
+        catch (error) {
+            next(error);
+        }
+    }
 }
 exports.TeacherController = TeacherController;
 //# sourceMappingURL=teacher.controller.js.map

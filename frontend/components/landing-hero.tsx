@@ -5,60 +5,21 @@ import { useSchoolName } from "@/lib/school-settings-context"
 import { useAppTheme } from "@/lib/theme-context"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import {
-  GraduationCap,
-  BookOpen,
-  Phone,
-  MapPin,
-  LogIn,
-  ChevronLeft,
-  Users,
-  Calendar,
-  FileText,
-  Download,
-  ExternalLink,
-  ImageIcon,
-  FileIcon,
-  LinkIcon,
-  FolderOpen,
-  CalendarDays,
-  Clock,
-  QrCode,
-  Star,
-  Sparkles,
-  ArrowLeft,
-  Shield,
-  Award,
-} from "lucide-react"
+import { GraduationCap, BookOpen, Phone, MapPin, LogIn, ChevronLeft, Users, Calendar, FileText, ImageIcon, FileIcon, LinkIcon, CalendarDays, Clock, QrCode, Star, Sparkles, Shield, Award } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { SubjectFile, TeacherAssignment, Teacher, SchoolClass, ScheduleItem } from "@/lib/store"
-import { fetchSubjectFilesByFilter } from "@/lib/supabase-files"
-import { fetchTeacherAssignments, fetchTeachers } from "@/lib/supabase-teachers"
-import { fetchClasses, fetchAllSchedule } from "@/lib/supabase-school"
-import { verifyQRToken } from "@/lib/api/qr.api"
+import {
+  usePublicClasses,
+  usePublicSchedule,
+  usePublicTeachers,
+  usePublicTeacherAssignments,
+  usePublicFiles,
+  usePublicQRToken,
+} from "@/lib/hooks/use-public-data"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
+import { grades, subjects } from "@/components/landing/landing-constants"
 
-const grades = [
-  { id: 1, name: "الصف الأول", color: "from-rose-500 to-pink-600", lightColor: "from-rose-500/10 to-pink-600/10", borderColor: "border-rose-500/20", hoverBorder: "group-hover:border-rose-500/40", icon: "🎨", desc: "بداية الرحلة" },
-  { id: 2, name: "الصف الثاني", color: "from-orange-500 to-amber-600", lightColor: "from-orange-500/10 to-amber-600/10", borderColor: "border-orange-500/20", hoverBorder: "group-hover:border-orange-500/40", icon: "🚀", desc: "اكتشاف جديد" },
-  { id: 3, name: "الصف الثالث", color: "from-yellow-500 to-orange-500", lightColor: "from-yellow-500/10 to-orange-500/10", borderColor: "border-yellow-500/20", hoverBorder: "group-hover:border-yellow-500/40", icon: "⭐", desc: "تطور مستمر" },
-  { id: 4, name: "الصف الرابع", color: "from-emerald-500 to-teal-600", lightColor: "from-emerald-500/10 to-teal-600/10", borderColor: "border-emerald-500/20", hoverBorder: "group-hover:border-emerald-500/40", icon: "🔬", desc: "علوم ممتعة" },
-  { id: 5, name: "الصف الخامس", color: "from-cyan-500 to-blue-600", lightColor: "from-cyan-500/10 to-blue-600/10", borderColor: "border-cyan-500/20", hoverBorder: "group-hover:border-cyan-500/40", icon: "📚", desc: "معرفة أعمق" },
-  { id: 6, name: "الصف السادس", color: "from-blue-500 to-indigo-600", lightColor: "from-blue-500/10 to-indigo-600/10", borderColor: "border-blue-500/20", hoverBorder: "group-hover:border-blue-500/40", icon: "🎯", desc: "تحضير منهجي" },
-  { id: 7, name: "الصف السابع", color: "from-violet-500 to-purple-600", lightColor: "from-violet-500/10 to-purple-600/10", borderColor: "border-violet-500/20", hoverBorder: "group-hover:border-violet-500/40", icon: "💡", desc: "مرحلة جديدة" },
-  { id: 8, name: "الصف الثامن", color: "from-purple-500 to-pink-600", lightColor: "from-purple-500/10 to-pink-600/10", borderColor: "border-purple-500/20", hoverBorder: "group-hover:border-purple-500/40", icon: "⚡", desc: "تقدم ملحوظ" },
-  { id: 9, name: "الصف التاسع", color: "from-indigo-500 to-violet-600", lightColor: "from-indigo-500/10 to-violet-600/10", borderColor: "border-indigo-500/20", hoverBorder: "group-hover:border-indigo-500/40", icon: "🏆", desc: "الإنجاز النهائي" },
-]
 
-const subjects = [
-  { name: "اللغة العربية", emoji: "📖", color: "from-blue-500 to-blue-600", bg: "bg-blue-500/10", text: "text-blue-400", desc: "لغتنا الجميلة" },
-  { name: "اللغة الإنجليزية", emoji: "🔤", color: "from-indigo-500 to-purple-600", bg: "bg-indigo-500/10", text: "text-indigo-400", desc: "English Language" },
-  { name: "الرياضيات", emoji: "🔢", color: "from-purple-500 to-fuchsia-600", bg: "bg-purple-500/10", text: "text-purple-400", desc: "أرقام وحساب" },
-  { name: "العلوم والحياة", emoji: "🔬", color: "from-emerald-500 to-green-600", bg: "bg-emerald-500/10", text: "text-emerald-400", desc: "اكتشاف العلوم" },
-  { name: "التربية الدينية", emoji: "🕌", color: "from-amber-500 to-yellow-500", bg: "bg-amber-500/10", text: "text-amber-400", desc: "تعليم ديني" },
-  { name: "الدراسات الاجتماعية", emoji: "🌍", color: "from-rose-500 to-red-600", bg: "bg-rose-500/10", text: "text-rose-400", desc: "التاريخ والجغرافيا" },
-  { name: "التكنولوجيا", emoji: "💻", color: "from-cyan-500 to-sky-600", bg: "bg-cyan-500/10", text: "text-cyan-400", desc: "عالم التقنية" },
-]
 
 type ViewState =
   | { type: "grades" }
@@ -143,30 +104,34 @@ export default function LandingHero() {
 
   const searchParams = useSearchParams()
   const [view, setView] = useState<ViewState>({ type: "grades" })
-  const [files, setFiles] = useState<SubjectFile[]>([])
-  const [assignments, setAssignments] = useState<TeacherAssignment[]>([])
-  const [teachersList, setTeachersList] = useState<Teacher[]>([])
-  const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
   const [mounted, setMounted] = useState(false)
   const [lastGradeId, setLastGradeId] = useState<number | null>(null)
 
   // Check if accessed via a signed QR token
-  const isViaQR = searchParams.get('token') !== null
+  const tokenParam = searchParams.get('token')
+  const isViaQR = tokenParam !== null
+  const { data: qrResult } = usePublicQRToken(tokenParam || undefined)
+
+  const { data: classes = [] } = usePublicClasses()
+  const { data: schedule = [] } = usePublicSchedule()
+  const { data: teachersList = [] } = usePublicTeachers()
+  const { data: assignments = [] } = usePublicTeacherAssignments()
+
+  const filesQuery = usePublicFiles(
+    view.type === "files" ? view.gradeId : undefined,
+    view.type === "files" ? view.semester : undefined,
+    view.type === "files" ? view.subject : undefined
+  )
+  const files = filesQuery.data ?? []
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Handle signed QR token — verify server-side before trusting the gradeId
+  // Handle signed QR token result
   useEffect(() => {
-    const tokenParam = searchParams.get('token')
-    if (!tokenParam) return
-
-    const resolveToken = async () => {
-      const result = await verifyQRToken(tokenParam)
-      if (!result) return
-      const grade = grades.find(g => g.id === result.gradeId)
+    if (qrResult?.gradeId) {
+      const grade = grades.find(g => g.id === qrResult.gradeId)
       if (grade) {
         setView({
           type: "semesters",
@@ -176,35 +141,14 @@ export default function LandingHero() {
         setLastGradeId(grade.id)
       }
     }
-
-    void resolveToken()
-  }, [searchParams])
-
-  // Fetch classes and schedules on mount
-  useEffect(() => {
-    const loadData = async () => {
-      const [cls, sch] = await Promise.all([fetchClasses(), fetchAllSchedule()])
-      setClasses(cls)
-      setSchedule(sch)
-    }
-    void loadData()
-  }, [])
-
-  useEffect(() => {
-    const loadMeta = async () => {
-      const [a, t] = await Promise.all([fetchTeacherAssignments(), fetchTeachers()])
-      setAssignments(a)
-      setTeachersList(t)
-    }
-    void loadMeta()
-  }, [])
+  }, [qrResult])
 
   // Helper to get full weekly schedule for a class (grouped by day) - with semester filter
   const getClassFullSchedule = (classId: string, semester: number) => {
     const classSchedule = schedule
       .filter(item => item.classId === classId && item.semester === semester)
       .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.periodNumber - b.periodNumber)
-    
+
     // Group by day
     const byDay: Record<number, ScheduleItem[]> = {}
     for (let i = 0; i < 7; i++) {
@@ -215,20 +159,6 @@ export default function LandingHero() {
 
   // Day names in Arabic (Sunday to Saturday)
   const dayNames = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
-
-  useEffect(() => {
-    const loadFiles = async () => {
-      if (view.type === "files") {
-        const list = await fetchSubjectFilesByFilter(
-          view.gradeId,
-          view.semester,
-          view.subject
-        )
-        setFiles(list)
-      }
-    }
-    void loadFiles()
-  }, [view])
 
   if (!mounted) return (
     <div className={`flex min-h-screen items-center justify-center ${isDark ? "bg-slate-900" : tc.bg50}`}>

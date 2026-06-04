@@ -72,8 +72,7 @@ export class TeachersController {
     try {
       const account = await TeachersService.createTeacherAccount(req.body);
       return sendSuccess(res, account, "Teacher account created successfully", 201);
-    } catch (error: any) {
-      console.error("[createAccount] error:", error?.message || error, "body:", req.body);
+    } catch (error) {
       next(error);
     }
   }

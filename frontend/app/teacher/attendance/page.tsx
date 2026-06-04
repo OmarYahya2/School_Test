@@ -3,10 +3,11 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { CalendarCheck, UserCheck, UserX, ChevronDown, ChevronUp } from "lucide-react"
-import { useAppTheme } from "@/lib/theme-context"
+import { useTeacherTheme } from "@/lib/teacher-theme-context"
 import { useTeacherClass } from "@/lib/teacher-class-context"
 import ClassSwitcher from "@/components/class-switcher"
 import { useTeacherAttendance, useTeacherStudents } from "@/lib/hooks/use-teacher-data"
+import { useTeacherLanguage } from "@/lib/teacher-language-context"
 
 interface StudentInfo {
   id: string
@@ -14,19 +15,20 @@ interface StudentInfo {
 }
 
 export default function TeacherAttendancePage() {
-  const { config } = useAppTheme()
+  const { config } = useTeacherTheme()
+  const { t } = useTeacherLanguage()
   const { selectedClassId } = useTeacherClass()
   const { data: records = [], isLoading: attendanceLoading } = useTeacherAttendance(selectedClassId || undefined)
   const { data: allStudents = [] } = useTeacherStudents()
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
 
   const tc = {
-    ocean:   { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200" },
-    violet:  { bg: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", border: "border-violet-200" },
-    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", border: "border-emerald-200" },
-    rose:    { bg: "bg-rose-500", text: "text-rose-600", light: "bg-rose-50", border: "border-rose-200" },
-    amber:   { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50", border: "border-amber-200" },
-  }[config.color] || { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200" }
+    ocean:   { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200/50", gradient: "from-blue-400/20 to-sky-300/10" },
+    violet:  { bg: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", border: "border-violet-200/50", gradient: "from-violet-400/20 to-fuchsia-300/10" },
+    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", border: "border-emerald-200/50", gradient: "from-emerald-400/20 to-teal-300/10" },
+    rose:    { bg: "bg-rose-500", text: "text-rose-600", light: "bg-rose-50", border: "border-rose-200/50", gradient: "from-rose-400/20 to-pink-300/10" },
+    amber:   { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50", border: "border-amber-200/50", gradient: "from-amber-400/20 to-orange-300/10" },
+  }[config.color] || { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200/50", gradient: "from-blue-400/20 to-sky-300/10" }
 
   const students: StudentInfo[] = selectedClassId
     ? allStudents.filter((s) => s.class.id === selectedClassId).map((s) => ({ id: s.id, name: s.name }))
@@ -40,9 +42,9 @@ export default function TeacherAttendancePage() {
   let totalPresent = 0
   let totalEntries = 0
   records.forEach((r) => {
-    const recs = (r.records as any[]) || []
+    const recs = r.records
     totalEntries += recs.length
-    totalPresent += recs.filter((rec: any) => rec.present).length
+    totalPresent += recs.filter((rec) => rec.present).length
   })
   const attendanceRate = totalEntries > 0 ? Math.round((totalPresent / totalEntries) * 100) : 0
 
@@ -58,14 +60,18 @@ export default function TeacherAttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-extrabold text-slate-900">الحضور</h1>
-          <ClassSwitcher />
-        </div>
-        <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ${tc.light} ${tc.text} border ${tc.border}`}>
-          <CalendarCheck className="h-4 w-4" />
-          {totalRecords} يوم مسجل
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-6">
+        <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${tc.gradient} rounded-full blur-3xl -z-10 opacity-60`} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-slate-900">{t.teacher.attendance}</h1>
+            <ClassSwitcher />
+          </div>
+          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ${tc.light} ${tc.text} border ${tc.border} backdrop-blur-sm`}>
+            <CalendarCheck className="h-4 w-4" />
+            {totalRecords} {t.teacher.daysRecorded}
+          </div>
         </div>
       </div>
 
@@ -75,13 +81,14 @@ export default function TeacherAttendancePage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl border ${tc.border} bg-white p-5 shadow-sm flex items-center gap-4`}
+            className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-lg"
           >
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tc.light} ${tc.text}`}>
+            <div className={`absolute top-0 left-0 w-24 h-24 bg-gradient-to-br ${tc.gradient} rounded-full blur-2xl opacity-30 -z-10`} />
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tc.light} ${tc.text} shadow-sm`}>
               <UserCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-medium">إجمالي الحضور</p>
+              <p className="text-xs text-slate-500 font-medium">{t.teacher.totalPresent}</p>
               <p className="text-xl font-black text-slate-900">{totalPresent}</p>
             </div>
           </motion.div>
@@ -89,13 +96,14 @@ export default function TeacherAttendancePage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className={`rounded-2xl border ${tc.border} bg-white p-5 shadow-sm flex items-center gap-4`}
+            className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-lg"
           >
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tc.light} ${tc.text}`}>
+            <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-rose-400/20 to-pink-300/10 rounded-full blur-2xl opacity-30 -z-10" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 shadow-sm">
               <UserX className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-medium">إجمالي الغياب</p>
+              <p className="text-xs text-slate-500 font-medium">{t.teacher.totalAbsent}</p>
               <p className="text-xl font-black text-slate-900">{totalEntries - totalPresent}</p>
             </div>
           </motion.div>
@@ -103,13 +111,14 @@ export default function TeacherAttendancePage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className={`rounded-2xl border ${tc.border} bg-white p-5 shadow-sm flex items-center gap-4`}
+            className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-lg"
           >
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tc.light} ${tc.text}`}>
+            <div className={`absolute top-0 left-0 w-24 h-24 bg-gradient-to-br ${tc.gradient} rounded-full blur-2xl opacity-30 -z-10`} />
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tc.light} ${tc.text} shadow-sm`}>
               <CalendarCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-medium">نسبة الحضور</p>
+              <p className="text-xs text-slate-500 font-medium">{t.teacher.attendancePercentage}</p>
               <p className="text-xl font-black text-slate-900">{attendanceRate}%</p>
             </div>
           </motion.div>
@@ -119,14 +128,14 @@ export default function TeacherAttendancePage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100/70 backdrop-blur-sm" />
           ))}
         </div>
       ) : records.length > 0 ? (
         <div className="space-y-3">
           {records.map((record, i) => {
-            const recs = (record.records as any[]) || []
-            const presentCount = recs.filter((r: any) => r.present).length
+            const recs = record.records
+            const presentCount = recs.filter((r) => r.present).length
             const absentCount = recs.length - presentCount
             const isExpanded = expandedDate === record.date
 
@@ -136,13 +145,13 @@ export default function TeacherAttendancePage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+                className="group relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-lg"
               >
                 <button
                   onClick={() => setExpandedDate(isExpanded ? null : record.date)}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center gap-4 p-4 hover:bg-white/40 transition-colors"
                 >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tc.light} ${tc.text}`}>
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tc.light} ${tc.text} shadow-sm`}>
                     <CalendarCheck className="h-5 w-5" />
                   </div>
                   <div className="flex-1 text-right">
@@ -167,16 +176,16 @@ export default function TeacherAttendancePage() {
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
-                    className="border-t border-slate-100"
+                    className="border-t border-white/30 bg-white/40 backdrop-blur-sm"
                   >
                     <div className="p-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {recs.map((rec: any) => (
+                      {recs.map((rec) => (
                         <div
                           key={rec.studentId}
-                          className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm ${
+                          className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm backdrop-blur-sm ${
                             rec.present
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-rose-200 bg-rose-50 text-rose-700"
+                              ? "border-emerald-200/50 bg-emerald-50/60 text-emerald-700"
+                              : "border-rose-200/50 bg-rose-50/60 text-rose-700"
                           }`}
                         >
                           {rec.present ? (
@@ -200,9 +209,9 @@ export default function TeacherAttendancePage() {
           })}
         </div>
       ) : (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 rounded-2xl bg-white/50 backdrop-blur-sm border border-white/20 text-slate-400">
           <CalendarCheck className="h-12 w-12 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">لا توجد سجلات حضور مسجلة لهذا الصف</p>
+          <p className="text-sm">{t.teacher.noAttendance}</p>
         </div>
       )}
     </div>

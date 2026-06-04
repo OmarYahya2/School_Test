@@ -3,25 +3,7 @@
 import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
-import {
-  FileText,
-  Plus,
-  Trash2,
-  ExternalLink,
-  ImageIcon,
-  FileIcon,
-  LinkIcon,
-  FolderOpen,
-  User,
-  FileStack,
-  Filter,
-  X,
-  Download,
-  Upload,
-  FileType,
-  ChevronRight,
-  BookOpen,
-} from "lucide-react"
+import { FileText, Plus, Trash2, ExternalLink, ImageIcon, FileIcon, LinkIcon, FolderOpen, User, Filter, X, Download, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,12 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import type { SubjectFile, Teacher } from "@/lib/store"
-import {
-  createSubjectFile,
-  deleteSubjectFileById,
-  uploadSubjectFileAsset,
-} from "@/lib/supabase-files"
-import { useAdminAllFiles, useAdminTeachers } from "@/lib/hooks/use-admin-data"
+import { uploadSubjectFileAsset } from "@/lib/supabase-files"
+import { useAdminAllFiles, useAdminTeachers, useCreateSubjectFileMutation, useDeleteSubjectFileMutation } from "@/lib/hooks/use-admin-data"
 
 const grades = [
   { id: 1, name: "الصف الأول" },
@@ -81,8 +59,10 @@ function FileTypeIcon({ type }: { type: SubjectFile["type"] }) {
 export default function SubjectFilesPage() {
   const { t, language } = useLanguage()
   const fp = t.filesPage
-  const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = useAdminAllFiles()
+  const { data: files = [], isLoading: filesLoading } = useAdminAllFiles()
   const { data: teachers = [] } = useAdminTeachers()
+  const createFile = useCreateSubjectFileMutation()
+  const deleteFile = useDeleteSubjectFileMutation()
   const [showForm, setShowForm] = useState(false)
 
   // Filters
@@ -153,48 +133,50 @@ export default function SubjectFilesPage() {
         }
       }
 
-      const created = await createSubjectFile(
-        filterGrade as number,
-        filterSemester,
-        filterSubject,
-        filterTeacher,
-        formTitle.trim(),
-        formDescription.trim(),
-        formType,
-        finalUrl
+      createFile.mutate(
+        {
+          gradeId: filterGrade as number,
+          semester: filterSemester,
+          subject: filterSubject,
+          teacherId: filterTeacher,
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          type: formType,
+          url: finalUrl,
+        },
+        {
+          onSuccess: () => {
+            setFormTitle("")
+            setFormDescription("")
+            setFormUrl("")
+            setFormFile(null)
+            setShowForm(false)
+            setIsSubmitting(false)
+            toast.success(fp.uploadSuccess)
+          },
+          onError: () => {
+            setIsSubmitting(false)
+            toast.error(t.dashboard.loadingError)
+          },
+        }
       )
-
-      if (!created) {
-        toast.error(t.dashboard.loadingError)
-        setIsSubmitting(false)
-        return
-      }
-
-      setFormTitle("")
-      setFormDescription("")
-      setFormUrl("")
-      setFormFile(null)
-      setShowForm(false)
-      void refetchFiles()
-      toast.success(fp.uploadSuccess)
     } catch (error) {
       console.error(error)
       toast.error(t.dashboard.loadingError)
-    } finally {
       setIsSubmitting(false)
     }
   }
 
   async function handleDelete(id: string) {
     if (!confirm(t.actions.delete)) return
-    try {
-      await deleteSubjectFileById(id)
-      void refetchFiles()
-      toast.success(fp.deleteSuccess)
-    } catch (error) {
-      console.error(error)
-      toast.error(t.dashboard.loadingError)
-    }
+    deleteFile.mutate(id, {
+      onSuccess: () => {
+        toast.success(fp.deleteSuccess)
+      },
+      onError: () => {
+        toast.error(t.dashboard.loadingError)
+      },
+    })
   }
 
   return (

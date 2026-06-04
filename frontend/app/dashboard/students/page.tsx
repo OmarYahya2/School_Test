@@ -1,29 +1,9 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  Plus,
-  ArrowLeft,
-  Search,
-  Filter,
-  Download,
-  FileText,
-  Users,
-  User,
-  GraduationCap,
-  Phone,
-  Calendar,
-  Trash2,
-  StickyNote,
-  ArrowUpDown,
-  ChevronDown,
-  UserCircle,
-  School,
-  Eye,
-  MoreHorizontal
-} from "lucide-react"
+import { Plus, Search, Filter, Download, FileText, Users, GraduationCap, Phone, Calendar, Trash2, StickyNote, ArrowUpDown, ChevronDown, UserCircle, School, Eye } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card" 
 
@@ -66,11 +46,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import type { Student, SchoolClass } from "@/lib/store"
-import { useAdminStudents, useAdminClasses } from "@/lib/hooks/use-admin-data"
-import {
-  createStudent,
-  deleteStudentById,
-} from "@/lib/supabase-school"
+import { useAdminStudents, useAdminClasses, useCreateStudentMutation, useDeleteStudentMutation } from "@/lib/hooks/use-admin-data"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
 
@@ -102,14 +78,16 @@ const itemVariants: Variants = {
 export default function StudentsPage() {
   const { t, language } = useLanguage()
   const sp = t.studentsPage
-  const { data: students = [], isLoading: studentsLoading, refetch: refetchStudents } = useAdminStudents()
+  const { data: students = [], isLoading: studentsLoading } = useAdminStudents()
   const { data: classes = [] } = useAdminClasses()
+  const createStudent = useCreateStudentMutation()
+  const deleteStudent = useDeleteStudentMutation()
   const loading = studentsLoading
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedClass, setSelectedClass] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("name")
   const [addOpen, setAddOpen] = useState(false)
-  
+
   // Pagination state - show 10 students initially
   const [displayCount, setDisplayCount] = useState(10)
   const INITIAL_DISPLAY_COUNT = 10
@@ -159,10 +137,6 @@ export default function StudentsPage() {
     }
   }
 
-  const reload = useCallback(() => {
-    refetchStudents()
-  }, [refetchStudents])
-
   async function handleAddStudent() {
     if (!newName.trim()) {
       toast.error(sp.studentName)
@@ -177,31 +151,40 @@ export default function StudentsPage() {
       toast.error(t.forms.age)
       return
     }
-    const created = await createStudent(
-      newName.trim(),
-      age,
-      newClassId,
-      newParentPhone.trim(),
-      newNotes.trim()
+    createStudent.mutate(
+      {
+        name: newName.trim(),
+        age,
+        classId: newClassId,
+        parentPhone: newParentPhone.trim(),
+        notes: newNotes.trim(),
+      },
+      {
+        onSuccess: () => {
+          setNewName("")
+          setNewAge("")
+          setNewParentPhone("")
+          setNewNotes("")
+          setNewClassId("")
+          setAddOpen(false)
+          toast.success(sp.addSuccess)
+        },
+        onError: () => {
+          toast.error(sp.addStudent)
+        },
+      }
     )
-    if (!created) {
-      toast.error(sp.addStudent)
-      return
-    }
-    setNewName("")
-    setNewAge("")
-    setNewParentPhone("")
-    setNewNotes("")
-    setNewClassId("")
-    setAddOpen(false)
-    void reload()
-    toast.success(sp.addSuccess)
   }
 
   async function handleDeleteStudent(id: string) {
-    await deleteStudentById(id)
-    void reload()
-    toast.success(sp.deleteSuccess)
+    deleteStudent.mutate(id, {
+      onSuccess: () => {
+        toast.success(sp.deleteSuccess)
+      },
+      onError: () => {
+        toast.error(sp.deleteStudent)
+      },
+    })
   }
 
   function getClassName(classId: string): string {

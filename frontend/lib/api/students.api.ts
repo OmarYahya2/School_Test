@@ -4,8 +4,7 @@ import type { Student } from "../store";
 export async function fetchStudents(): Promise<Student[]> {
   try {
     return await client.get<Student[]>("/students");
-  } catch (error: any) {
-    console.error("fetchStudents error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
@@ -13,8 +12,7 @@ export async function fetchStudents(): Promise<Student[]> {
 export async function fetchStudentsByClass(classId: string): Promise<Student[]> {
   try {
     return await client.get<Student[]>(`/students/class/${classId}`);
-  } catch (error: any) {
-    console.error("fetchStudentsByClass error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
@@ -22,8 +20,7 @@ export async function fetchStudentsByClass(classId: string): Promise<Student[]> 
 export async function fetchStudentById(id: string): Promise<Student | null> {
   try {
     return await client.get<Student>(`/students/${id}`);
-  } catch (error: any) {
-    console.error("fetchStudentById error:", error?.message || error?.status || error);
+  } catch {
     return null;
   }
 }
@@ -43,20 +40,18 @@ export async function createStudent(
       parentPhone,
       notes,
     });
-  } catch (error) {
-    console.error("createStudent error:", error);
+  } catch {
     return null;
   }
 }
 
 export async function updateStudentById(
   id: string,
-  updates: Partial<Pick<Student, "name" | "age" | "parentPhone" | "notes">>
+  updates: Partial<Pick<Student, "name" | "age" | "classId" | "parentPhone" | "notes">>
 ): Promise<Student | null> {
   try {
     return await client.put<Student>(`/students/${id}`, updates);
-  } catch (error) {
-    console.error("updateStudentById error:", error);
+  } catch {
     return null;
   }
 }
@@ -64,7 +59,7 @@ export async function updateStudentById(
 export async function deleteStudentById(id: string): Promise<void> {
   try {
     await client.delete(`/students/${id}`);
-  } catch (error) {
-    console.error("deleteStudentById error:", error);
+  } catch {
+    // silently ignore
   }
 }

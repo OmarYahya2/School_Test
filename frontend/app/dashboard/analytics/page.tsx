@@ -14,23 +14,30 @@ import { motion, type Variants } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Area,
-  AreaChart,
-} from "recharts"
 import { useAdminAnalytics } from "@/lib/hooks/use-admin-data"
 import { SkeletonStats, SkeletonTable } from "@/components/skeletons"
 import { useLanguage } from "@/lib/i18n/context"
+import dynamic from "next/dynamic"
+
+const OverviewGrowthChart = dynamic(
+  () => import("./charts-client").then((mod) => mod.OverviewGrowthChart),
+  { ssr: false, loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/40" /> }
+)
+
+const OverviewAgePieChart = dynamic(
+  () => import("./charts-client").then((mod) => mod.OverviewAgePieChart),
+  { ssr: false, loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/40" /> }
+)
+
+const StudentsClassBarChart = dynamic(
+  () => import("./charts-client").then((mod) => mod.StudentsClassBarChart),
+  { ssr: false, loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/40" /> }
+)
+
+const TeachersSubjectBarChart = dynamic(
+  () => import("./charts-client").then((mod) => mod.TeachersSubjectBarChart),
+  { ssr: false, loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/40" /> }
+)
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
 
@@ -214,28 +221,7 @@ export default function AnalyticsPage() {
                   <CardDescription className="text-xs text-muted-foreground">{ap.overview}</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={monthlyData}>
-                      <defs>
-                        <linearGradient id="studentsGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="teachersGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: "12px", border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)", fontSize: 12 }}
-                      />
-                      <Area type="monotone" dataKey="students" stroke="var(--primary)" strokeWidth={2} fill="url(#studentsGrad)" name={ap.totalStudents} />
-                      <Area type="monotone" dataKey="teachers" stroke="#10b981" strokeWidth={2} fill="url(#teachersGrad)" name={ap.totalTeachers} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <OverviewGrowthChart monthlyData={monthlyData} ap={ap} />
                 </CardContent>
               </Card>
 
@@ -245,34 +231,7 @@ export default function AnalyticsPage() {
                   <CardDescription className="text-xs text-muted-foreground">{ap.overview}</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {analytics.charts.ageDistribution.every(d => d.count === 0) ? (
-                    <div className="flex flex-col items-center justify-center h-60 text-muted-foreground">
-                      <Users className="h-10 w-10 text-muted-foreground/20 mb-2" />
-                      <p className="text-xs font-semibold">{ap.noData}</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <PieChart>
-                        <Pie
-                          data={analytics.charts.ageDistribution.filter(d => d.count > 0)}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={90}
-                          paddingAngle={3}
-                          dataKey="count"
-                        >
-                          {analytics.charts.ageDistribution.filter(d => d.count > 0).map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ borderRadius: "12px", border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)", fontSize: 12 }}
-                          formatter={(value, name, props) => [`${value}`, `${props.payload.range}`]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
+                  <OverviewAgePieChart ageDistribution={analytics.charts.ageDistribution} ap={ap} />
                 </CardContent>
               </Card>
             </div>
@@ -315,25 +274,7 @@ export default function AnalyticsPage() {
                   <CardDescription className="text-xs text-muted-foreground">{ap.totalClasses}</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {analytics.charts.classBreakdown.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-52 text-muted-foreground">
-                      <BookOpen className="h-10 w-10 text-muted-foreground/20 mb-2" />
-                      <p className="text-xs font-semibold">{ap.noData}</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={analytics.charts.classBreakdown} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                        <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={80} />
-                        <Tooltip
-                          contentStyle={{ borderRadius: "12px", border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)", fontSize: 12 }}
-                          formatter={(v) => [`${v}`, ap.totalStudents]}
-                        />
-                        <Bar dataKey="students" fill="var(--primary)" radius={[0, 6, 6, 0]} name={ap.totalStudents} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
+                  <StudentsClassBarChart classBreakdown={analytics.charts.classBreakdown} ap={ap} />
                 </CardContent>
               </Card>
 
@@ -414,29 +355,7 @@ export default function AnalyticsPage() {
                   <CardDescription className="text-xs text-muted-foreground">{ap.totalTeachers}</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {subjectData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-52 text-muted-foreground">
-                      <BookOpen className="h-10 w-10 text-muted-foreground/20 mb-2" />
-                      <p className="text-xs font-semibold">{ap.noData}</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={subjectData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                        <Tooltip
-                          contentStyle={{ borderRadius: "12px", border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)", fontSize: 12 }}
-                          formatter={(v) => [`${v}`, ap.totalTeachers]}
-                        />
-                        <Bar dataKey="value" radius={[6, 6, 0, 0]} name={ap.totalTeachers}>
-                          {subjectData.map((_, index) => (
-                            <Cell key={`bar-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
+                  <TeachersSubjectBarChart subjectData={subjectData} ap={ap} />
                 </CardContent>
               </Card>
 

@@ -10,6 +10,7 @@ const routes_1 = __importDefault(require("./routes"));
 const env_1 = require("./config/env");
 const error_middleware_1 = require("./middleware/error.middleware");
 const logger_middleware_1 = require("./middleware/logger.middleware");
+const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 // Configure CORS — uses CORS_ORIGIN env var (defaults to * in dev)
 app.use((0, cors_1.default)({
@@ -37,5 +38,14 @@ app.listen(env_1.env.PORT, () => {
     console.log(`[Server] Running at ${env_1.env.BACKEND_URL}`);
     console.log(`[Server] Environment: ${env_1.env.NODE_ENV}`);
     console.log(`[Server] CORS origin: ${env_1.env.CORS_ORIGIN}`);
+    // Database pre-heating / connection warmup
+    console.log("[Server] Pre-heating database connection pool...");
+    prisma_1.prisma.$queryRaw `SELECT 1`
+        .then(() => {
+        console.log("[Server] Database connection pool pre-heated successfully!");
+    })
+        .catch((err) => {
+        console.error("[Server] Database pre-heating failed:", err);
+    });
 });
 //# sourceMappingURL=server.js.map

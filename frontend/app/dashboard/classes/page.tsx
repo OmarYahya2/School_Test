@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Plus, Pencil, Trash2, BookOpen, Users, GraduationCap, Search, Filter, ArrowUpRight, ChevronLeft } from "lucide-react"
+import { Plus, Pencil, Trash2, BookOpen, Users, ChevronLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,12 +37,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import type { SchoolClass, Teacher } from "@/lib/store"
-import {
-  createClass,
-  updateClassById,
-  deleteClassById,
-} from "@/lib/supabase-school"
-import { useAdminClasses, useAdminTeachers, useAdminStudents } from "@/lib/hooks/use-admin-data"
+import { useAdminClasses, useAdminTeachers, useAdminStudents, useCreateClassMutation, useUpdateClassMutation, useDeleteClassMutation } from "@/lib/hooks/use-admin-data"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
 
@@ -62,9 +57,12 @@ const itemVariants: Variants = {
 export default function ClassesPage() {
   const { t, language } = useLanguage()
   const cp = t.classesPage
-  const { data: classes = [], isLoading: classesLoading, refetch: refetchClasses } = useAdminClasses()
+  const { data: classes = [], isLoading: classesLoading } = useAdminClasses()
   const { data: teachers = [] } = useAdminTeachers()
   const { data: allStudents = [] } = useAdminStudents()
+  const createClass = useCreateClassMutation()
+  const updateClass = useUpdateClassMutation()
+  const deleteClass = useDeleteClassMutation()
   const loading = classesLoading
   const [newClassName, setNewClassName] = useState("")
   const [editingClass, setEditingClass] = useState<SchoolClass | null>(null)
@@ -82,49 +80,61 @@ export default function ClassesPage() {
     return counts
   }, [allStudents])
 
-  const reload = useCallback(() => {
-    refetchClasses()
-  }, [refetchClasses])
-
   async function handleAdd() {
     if (!newClassName.trim()) {
       toast.error(cp.className)
       return
     }
-    const created = await createClass(newClassName.trim(), newClassTeacherId || null)
-    if (!created) {
-      toast.error(cp.addClass)
-      return
-    }
-    setNewClassName("")
-    setNewClassTeacherId("")
-    setAddOpen(false)
-    void reload()
-    toast.success(cp.addSuccess)
+    createClass.mutate(
+      { name: newClassName.trim(), teacherId: newClassTeacherId || null },
+      {
+        onSuccess: () => {
+          setNewClassName("")
+          setNewClassTeacherId("")
+          setAddOpen(false)
+          toast.success(cp.addSuccess)
+        },
+        onError: () => {
+          toast.error(cp.addClass)
+        },
+      }
+    )
   }
 
   async function handleEdit() {
     if (!editingClass || !editName.trim()) return
-    const updated = await updateClassById(editingClass.id, {
-      name: editName.trim(),
-      teacherId: editTeacherId === "none" ? null : editTeacherId,
-    })
-    if (!updated) {
-      toast.error(cp.editClass)
-      return
-    }
-    setEditingClass(null)
-    setEditName("")
-    setEditTeacherId("")
-    setEditOpen(false)
-    void reload()
-    toast.success(cp.addSuccess)
+    updateClass.mutate(
+      {
+        id: editingClass.id,
+        updates: {
+          name: editName.trim(),
+          teacherId: editTeacherId === "none" ? null : editTeacherId,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingClass(null)
+          setEditName("")
+          setEditTeacherId("")
+          setEditOpen(false)
+          toast.success(cp.addSuccess)
+        },
+        onError: () => {
+          toast.error(cp.editClass)
+        },
+      }
+    )
   }
 
   async function handleDelete(id: string) {
-    await deleteClassById(id)
-    void reload()
-    toast.success(cp.deleteSuccess)
+    deleteClass.mutate(id, {
+      onSuccess: () => {
+        toast.success(cp.deleteSuccess)
+      },
+      onError: () => {
+        toast.error(cp.deleteAction)
+      },
+    })
   }
 
   function getTeacherName(teacherId: string | null): string {

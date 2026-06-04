@@ -6,16 +6,13 @@ import { getPaginationParams } from "../utils/pagination.utils";
 import { prisma } from "../lib/prisma";
 
 async function isTeacherAssignedToClass(teacherId: string, classId: string): Promise<boolean> {
-  console.log("[DEBUG] isTeacherAssignedToClass teacherId=", teacherId, "classId=", classId);
   const assignment = await prisma.teacherAssignment.findFirst({
     where: { teacherId, classId },
   });
-  console.log("[DEBUG] assignment=", assignment);
   if (assignment) return true;
   const homeroom = await prisma.class.findFirst({
     where: { teacherId, id: classId },
   });
-  console.log("[DEBUG] homeroom=", homeroom);
   return !!homeroom;
 }
 

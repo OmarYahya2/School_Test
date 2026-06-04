@@ -3,30 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { 
-  ArrowLeft, 
-  User, 
-  Calendar, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Edit,
-  BookOpen,
-  Award,
-  FileText,
-  GraduationCap,
-  Home,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  TrendingUp,
-  Users,
-  StickyNote,
-  Plus,
-  Trash2,
-  CheckCircle2
-} from "lucide-react"
+import { ArrowLeft, User, Calendar, BookOpen, Award, FileText, GraduationCap, Users, StickyNote, Plus, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

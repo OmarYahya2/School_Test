@@ -1,18 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Plus,
-  Trash2,
-  Clock,
-  Calendar,
-  BookOpen,
-  User,
-  GraduationCap,
-  Edit3,
-  Save,
-  School,
-} from "lucide-react"
+import { Plus, Trash2, Clock, Calendar, BookOpen, User, GraduationCap, Edit3, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,12 +35,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { ScheduleItem, SchoolClass, Teacher } from "@/lib/store"
-import {
-  createScheduleItem,
-  updateScheduleItem,
-  deleteScheduleItem,
-} from "@/lib/supabase-school"
-import { useAdminScheduleByClass, useAdminClasses, useAdminTeachers } from "@/lib/hooks/use-admin-data"
+import { useAdminScheduleByClass, useAdminClasses, useAdminTeachers, useCreateScheduleItemMutation, useUpdateScheduleItemMutation, useDeleteScheduleItemMutation } from "@/lib/hooks/use-admin-data"
 import { motion, type Variants } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
 
@@ -113,9 +97,12 @@ export default function SchedulePage() {
   const [selectedClass, setSelectedClass] = useState<string>("")
   const [selectedSemester, setSelectedSemester] = useState<number>(1)
 
-  const { data: schedule = [], isLoading: scheduleLoading, refetch: refetchSchedule } = useAdminScheduleByClass(selectedClass, selectedSemester)
+  const { data: schedule = [], isLoading: scheduleLoading } = useAdminScheduleByClass(selectedClass, selectedSemester)
   const { data: classes = [], isLoading: classesLoading } = useAdminClasses()
   const { data: teachers = [] } = useAdminTeachers()
+  const createSchedule = useCreateScheduleItemMutation()
+  const updateSchedule = useUpdateScheduleItemMutation()
+  const deleteSchedule = useDeleteScheduleItemMutation()
   const loading = scheduleLoading || classesLoading
 
   const [addOpen, setAddOpen] = useState(false)
@@ -190,26 +177,28 @@ export default function SchedulePage() {
       return
     }
 
-    const created = await createScheduleItem(
-      selectedClass,
-      formSemester,
-      selectedDay,
-      selectedPeriod,
-      subject,
-      teacherId,
-      startTime,
-      endTime
+    createSchedule.mutate(
+      {
+        classId: selectedClass,
+        semester: formSemester,
+        dayOfWeek: selectedDay,
+        periodNumber: selectedPeriod,
+        subject,
+        teacherId,
+        startTime,
+        endTime,
+      },
+      {
+        onSuccess: () => {
+          resetForm()
+          setAddOpen(false)
+          toast.success(sp.addSuccess)
+        },
+        onError: () => {
+          toast.error(t.dashboard.loadingError)
+        },
+      }
     )
-
-    if (!created) {
-      toast.error(t.dashboard.loadingError)
-      return
-    }
-
-    resetForm()
-    setAddOpen(false)
-    void refetchSchedule()
-    toast.success(sp.addSuccess)
   }
 
   const handleEditClick = (item: ScheduleItem) => {
@@ -244,30 +233,40 @@ export default function SchedulePage() {
 
     const teacherId = selectedTeacher === "none" ? null : selectedTeacher || null
 
-    const updated = await updateScheduleItem(editingItem.id, {
-      subject,
-      teacherId,
-      startTime,
-      endTime,
-      semester: formSemester,
-    })
-
-    if (!updated) {
-      toast.error(t.dashboard.loadingError)
-      return
-    }
-
-    setEditOpen(false)
-    setEditingItem(null)
-    resetForm()
-    void refetchSchedule()
-    toast.success(sp.addSuccess)
+    updateSchedule.mutate(
+      {
+        id: editingItem.id,
+        updates: {
+          subject,
+          teacherId,
+          startTime,
+          endTime,
+          semester: formSemester,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditOpen(false)
+          setEditingItem(null)
+          resetForm()
+          toast.success(sp.addSuccess)
+        },
+        onError: () => {
+          toast.error(t.dashboard.loadingError)
+        },
+      }
+    )
   }
 
   const handleDeleteScheduleItem = async (id: string) => {
-    await deleteScheduleItem(id)
-    void refetchSchedule()
-    toast.success(sp.deleteSuccess)
+    deleteSchedule.mutate(id, {
+      onSuccess: () => {
+        toast.success(sp.deleteSuccess)
+      },
+      onError: () => {
+        toast.error(t.dashboard.loadingError)
+      },
+    })
   }
 
   const stats = {

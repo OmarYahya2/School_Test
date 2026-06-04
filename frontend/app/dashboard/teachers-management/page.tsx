@@ -1,12 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import {
-  Plus, Trash2, Pencil, Power, KeyRound, Users, Mail, BookOpen, Phone,
-  CheckCircle2, XCircle, Search, GraduationCap, Lock
-} from "lucide-react"
+import { Plus, Trash2, Pencil, Power, KeyRound, Users, Mail, BookOpen, CheckCircle2, XCircle, Search, GraduationCap, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,8 +10,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { client } from "@/lib/api/client"
-import { useAdminTeacherAccounts } from "@/lib/hooks/use-admin-data"
+import {
+  useAdminTeacherAccounts,
+  useCreateTeacherAccountMutation,
+  useUpdateTeacherAccountMutation,
+  useToggleTeacherAccountStatusMutation,
+  useDeleteTeacherAccountMutation,
+  useResetTeacherPasswordMutation,
+} from "@/lib/hooks/use-admin-data"
 import { useAppTheme } from "@/lib/theme-context"
 
 interface TeacherAccount {
@@ -33,8 +35,13 @@ interface TeacherAccount {
 
 export default function TeachersManagementPage() {
   const { config } = useAppTheme()
-  const queryClient = useQueryClient()
   const { data: accounts = [], isLoading: loading } = useAdminTeacherAccounts()
+  const createAccount = useCreateTeacherAccountMutation()
+  const updateAccount = useUpdateTeacherAccountMutation()
+  const toggleStatus = useToggleTeacherAccountStatusMutation()
+  const deleteAccount = useDeleteTeacherAccountMutation()
+  const resetPassword = useResetTeacherPasswordMutation()
+
   const [search, setSearch] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -60,33 +67,44 @@ export default function TeachersManagementPage() {
     amber:   { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50", border: "border-amber-200", btn: "bg-amber-600 hover:bg-amber-700" },
   }[config.color] || { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200", btn: "bg-blue-600 hover:bg-blue-700" }
 
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: ["admin", "teacherAccounts"] })
-  }
-
   const filtered = accounts.filter((a) =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||
     (a.email && a.email.toLowerCase().includes(search.toLowerCase()))
   )
 
-  async function handleSave() {
-    try {
-      if (editingId) {
-        await client.put(`/teachers/accounts/${editingId}`, {
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          assignedSubjects: form.assignedSubjects,
-          isHomeroom: form.isHomeroom,
-          classId: form.classId || undefined,
-        })
-        toast.success("تم تحديث الحساب")
-      } else {
-        if (!form.name || !form.email || !form.password) {
-          toast.error("الاسم والبريد وكلمة المرور مطلوبة")
-          return
+  function handleSave() {
+    if (editingId) {
+      updateAccount.mutate(
+        {
+          id: editingId,
+          data: {
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+            assignedSubjects: form.assignedSubjects,
+            isHomeroom: form.isHomeroom,
+            classId: form.classId || undefined,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success("تم تحديث الحساب")
+            setDialogOpen(false)
+            resetForm()
+          },
+          onError: (err: any) => {
+            console.error("saveTeacher error:", err)
+            toast.error(err?.message || "حدث خطأ")
+          },
         }
-        await client.post("/teachers/accounts", {
+      )
+    } else {
+      if (!form.name || !form.email || !form.password) {
+        toast.error("الاسم والبريد وكلمة المرور مطلوبة")
+        return
+      }
+      createAccount.mutate(
+        {
           name: form.name,
           email: form.email,
           password: form.password,
@@ -94,53 +112,60 @@ export default function TeachersManagementPage() {
           assignedSubjects: form.assignedSubjects,
           isHomeroom: form.isHomeroom,
           classId: form.classId || undefined,
-        })
-        toast.success("تم إنشاء الحساب")
-      }
-      setDialogOpen(false)
-      resetForm()
-      reload()
-    } catch (err: any) {
-      console.error("saveTeacher error:", err)
-      toast.error(err?.message || "حدث خطأ")
+        },
+        {
+          onSuccess: () => {
+            toast.success("تم إنشاء الحساب")
+            setDialogOpen(false)
+            resetForm()
+          },
+          onError: (err: any) => {
+            console.error("createTeacher error:", err)
+            toast.error(err?.message || "حدث خطأ")
+          },
+        }
+      )
     }
   }
 
-  async function handleToggleStatus(id: string) {
-    try {
-      await client.patch(`/teachers/accounts/${id}/status`, {})
-      toast.success("تم تحديث الحالة")
-      reload()
-    } catch (err: any) {
-      console.error("toggleStatus error:", err)
-      toast.error(err?.message || "فشل تحديث الحالة")
-    }
+  function handleToggleStatus(id: string) {
+    toggleStatus.mutate(id, {
+      onSuccess: () => toast.success("تم تحديث الحالة"),
+      onError: (err: any) => {
+        console.error("toggleStatus error:", err)
+        toast.error(err?.message || "فشل تحديث الحالة")
+      },
+    })
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     if (!confirm("هل أنت متأكد من حذف هذا الحساب؟")) return
-    try {
-      await client.delete(`/teachers/accounts/${id}`)
-      toast.success("تم حذف الحساب")
-      reload()
-    } catch (err: any) {
-      console.error("deleteTeacher error:", err)
-      toast.error(err?.message || "فشل الحذف")
-    }
+    deleteAccount.mutate(id, {
+      onSuccess: () => toast.success("تم حذف الحساب"),
+      onError: (err: any) => {
+        console.error("deleteTeacher error:", err)
+        toast.error(err?.message || "فشل الحذف")
+      },
+    })
   }
 
-  async function handleResetPassword() {
+  function handleResetPassword() {
     if (!resetTargetId || !newPassword) return
-    try {
-      await client.patch(`/teachers/accounts/${resetTargetId}/reset-password`, { password: newPassword })
-      toast.success("تم إعادة تعيين كلمة المرور")
-      setResetPasswordOpen(false)
-      setNewPassword("")
-      setResetTargetId(null)
-    } catch (err: any) {
-      console.error("resetPassword error:", err)
-      toast.error(err?.message || "فشل إعادة التعيين")
-    }
+    resetPassword.mutate(
+      { id: resetTargetId, password: newPassword },
+      {
+        onSuccess: () => {
+          toast.success("تم إعادة تعيين كلمة المرور")
+          setResetPasswordOpen(false)
+          setNewPassword("")
+          setResetTargetId(null)
+        },
+        onError: (err: any) => {
+          console.error("resetPassword error:", err)
+          toast.error(err?.message || "فشل إعادة التعيين")
+        },
+      }
+    )
   }
 
   function openCreate() {
@@ -250,9 +275,13 @@ export default function TeachersManagementPage() {
                   </span>
                 )}
                 {account.classes.length > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600 border border-blue-200">
-                    <Users className="h-3 w-3" /> {account.classes[0].name}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {account.classes.map((cls: { id: string; name: string }) => (
+                      <span key={cls.id} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600 border border-blue-200">
+                        <Users className="h-3 w-3" /> {cls.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
 

@@ -1,28 +1,8 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import Link from "next/link"
-import {
-  Plus,
-  Trash2,
-  Search,
-  GraduationCap,
-  Filter,
-  Award,
-  TrendingUp,
-  BookOpen,
-  Calendar,
-  User,
-  School,
-  Save,
-  BarChart3,
-  ChevronLeft,
-  Users,
-  ClipboardList,
-  Eye,
-  AlertCircle,
-} from "lucide-react"
+import { Plus, Trash2, Search, GraduationCap, Filter, Award, User, School, BarChart3, ChevronLeft, Users, ClipboardList, Eye, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -57,11 +37,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import type { Student, SchoolClass, Teacher, Grade } from "@/lib/store"
-import {
-  createGrade,
-  deleteGrade,
-} from "@/lib/supabase-school"
-import { useAdminGrades, useAdminStudents, useAdminClasses, useAdminTeachers } from "@/lib/hooks/use-admin-data"
+import { useAdminGrades, useAdminStudents, useAdminClasses, useAdminTeachers, useAdminTeacherAssignments, useCreateGradeMutation, useDeleteGradeMutation } from "@/lib/hooks/use-admin-data"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 import { useLanguage } from "@/lib/i18n/context"
 
@@ -101,14 +77,31 @@ const itemVariants: Variants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } },
 }
 
+function getGradeFromClassName(name: string): number {
+  const keywords: Record<string, number> = {
+    "أول": 1, "ثاني": 2, "ثالث": 3, "رابع": 4, "خامس": 5,
+    "سادس": 6, "سابع": 7, "ثامن": 8, "تاسع": 9,
+    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+    "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9,
+    "1": 1, "2": 2, "3": 3, "4": 4, "5": 5,
+    "6": 6, "7": 7, "8": 8, "9": 9,
+  }
+  for (const [word, num] of Object.entries(keywords)) {
+    if (name.includes(word)) return num
+  }
+  return 1
+}
+
 export default function GradesPage() {
   const { t, language } = useLanguage()
   const gp = t.gradesPage
-  const queryClient = useQueryClient()
   const { data: grades = [], isLoading: gradesLoading } = useAdminGrades()
   const { data: students = [], isLoading: studentsLoading } = useAdminStudents()
   const { data: classes = [] } = useAdminClasses()
   const { data: teachers = [] } = useAdminTeachers()
+  const { data: teacherAssignments = [] } = useAdminTeacherAssignments()
+  const createGrade = useCreateGradeMutation()
+  const deleteGrade = useDeleteGradeMutation()
   const loading = gradesLoading || studentsLoading
 
   // View mode
@@ -119,7 +112,7 @@ export default function GradesPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSemester, setSelectedSemester] = useState<string>("first")
-  const [selectedYear, setSelectedYear] = useState<string>("2024-2025")
+  const [selectedYear, setSelectedYear] = useState<string>("2026")
   const [filterTeacherId, setFilterTeacherId] = useState<string>("all")
 
   // View 2 filters (for class grades view)
@@ -136,11 +129,7 @@ export default function GradesPage() {
   const [newGrade, setNewGrade] = useState("")
   const [newMaxGrade, setNewMaxGrade] = useState("100")
   const [newNotes, setNewNotes] = useState("")
-
-  const reload = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["admin", "grades"] })
-    queryClient.invalidateQueries({ queryKey: ["admin", "students"] })
-  }, [queryClient])
+  const [dialogExamType, setDialogExamType] = useState<string>("exam")
 
   // Get students for selected class
   const studentsInClass = selectedClass
@@ -152,9 +141,33 @@ export default function GradesPage() {
     return grades.filter(
       (g) =>
         g.studentId === studentId &&
-        g.academicYear === selectedYear &&
-        g.semester === selectedSemester
+        g.academicYear === selectedYear
     )
+  }
+
+  function getTeacherAssignment(teacherId: string) {
+    return teacherAssignments.find((a) => a.teacherId === teacherId)
+  }
+
+  function isTeacherAssignedToCurrentClass(teacherId: string): boolean {
+    if (!selectedClass) return false
+    return teacherAssignments.some((a) => {
+      if (a.teacherId !== teacherId) return false
+      if (a.classId) return a.classId === selectedClass.id
+      // Fallback: match by gradeId if classId not stored
+      const clsGrade = getGradeFromClassName(selectedClass.name)
+      return a.gradeId === clsGrade
+    })
+  }
+
+  function getSubjectForTeacher(teacherId: string): string {
+    const teacher = teachers.find((t) => t.id === teacherId)
+    if (teacher?.subject) return teacher.subject
+    return getTeacherAssignment(teacherId)?.subject || ""
+  }
+
+  function getSemesterForTeacher(teacherId: string): string {
+    return getTeacherAssignment(teacherId)?.semester || "first"
   }
 
   async function handleAddGrade() {
@@ -166,11 +179,12 @@ export default function GradesPage() {
       toast.error(t.forms.selectTeacher)
       return
     }
-    if (classFilterSubject === "all") {
+    const subject = getSubjectForTeacher(classFilterTeacher)
+    if (!subject) {
       toast.error(t.forms.selectSubject)
       return
     }
-    if (classFilterExamType === "all") {
+    if (!dialogExamType) {
       toast.error(gp.examType)
       return
     }
@@ -181,44 +195,47 @@ export default function GradesPage() {
       return
     }
 
-    try {
-      const created = await createGrade(
-        selectedStudent.id,
-        classFilterSubject,
-        gradeValue,
-        maxGradeValue,
-        selectedSemester,
-        selectedYear,
-        classFilterExamType,
-        classFilterTeacher,
-        newNotes.trim()
-      )
-
-      if (!created) {
-        toast.error(t.dashboard.loadingError)
-        return
+    createGrade.mutate(
+      {
+        studentId: selectedStudent.id,
+        subject,
+        grade: gradeValue,
+        maxGrade: maxGradeValue,
+        semester: getSemesterForTeacher(classFilterTeacher),
+        academicYear: selectedYear,
+        examType: dialogExamType,
+        teacherId: classFilterTeacher,
+        notes: newNotes.trim(),
+      },
+      {
+        onSuccess: () => {
+          resetForm()
+          setAddGradeOpen(false)
+          toast.success(gp.addSuccess)
+        },
+        onError: () => {
+          toast.error(t.dashboard.loadingError)
+        },
       }
-
-      resetForm()
-      setAddGradeOpen(false)
-      reload()
-      toast.success(gp.addSuccess)
-    } catch (error) {
-      console.error("Error in handleAddGrade:", error)
-      toast.error(t.dashboard.loadingError)
-    }
+    )
   }
 
   async function handleDeleteGrade(id: string) {
-    await deleteGrade(id)
-    reload()
-    toast.success(gp.noGrades)
+    deleteGrade.mutate(id, {
+      onSuccess: () => {
+        toast.success(gp.noGrades)
+      },
+      onError: () => {
+        toast.error(t.dashboard.loadingError)
+      },
+    })
   }
 
   function resetForm() {
     setNewGrade("")
     setNewMaxGrade("100")
     setNewNotes("")
+    setDialogExamType("exam")
   }
 
   function openAddGrade(student: Student) {
@@ -397,6 +414,8 @@ export default function GradesPage() {
                   className="bg-card border border-border/50 shadow-sm hover:shadow-md transition-all cursor-pointer group rounded-2xl relative overflow-hidden"
                   onClick={() => {
                     setSelectedClass(cls)
+                    setClassFilterTeacher("all")
+                    setClassFilterSubject("all")
                     setViewMode("students")
                   }}
                 >
@@ -461,7 +480,7 @@ export default function GradesPage() {
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-extrabold text-foreground">{selectedClass.name}</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">{gp.semester}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{selectedYear}</p>
             </div>
           </div>
 
@@ -475,52 +494,30 @@ export default function GradesPage() {
                 className="w-full sm:w-44 pr-9 border-border rounded-xl h-9 text-xs"
               />
             </div>
-            <Select value={classFilterTeacher} onValueChange={setClassFilterTeacher}>
-              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
+            <Select value={classFilterTeacher} onValueChange={(val) => {
+              setClassFilterTeacher(val)
+              if (val !== "all") {
+                const sub = getSubjectForTeacher(val)
+                setClassFilterSubject(sub || "all")
+              } else {
+                setClassFilterSubject("all")
+              }
+            }}>
+              <SelectTrigger className="w-56 border-border rounded-xl h-9 text-xs">
                 <SelectValue placeholder={t.forms.selectTeacher} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.forms.selectTeacher}</SelectItem>
-                {teachers.map((teacher) => (
-                  <SelectItem key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={classFilterSubject} onValueChange={setClassFilterSubject}>
-              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
-                <SelectValue placeholder={t.forms.selectSubject} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.forms.selectSubject}</SelectItem>
-                {SUBJECTS.map((subject) => (
-                  <SelectItem key={subject} value={subject}>
-                    {subject}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={classFilterExamType} onValueChange={setClassFilterExamType}>
-              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
-                <SelectValue placeholder={gp.examType} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.forms.selectSubject}</SelectItem>
-                {EXAM_TYPES.map((et) => (
-                  <SelectItem key={et.value} value={et.value}>
-                    {et.label[language as "ar" | "en"]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-              <SelectTrigger className="w-36 border-border rounded-xl h-9 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="first">{t.teachersPage.firstSemester}</SelectItem>
-                <SelectItem value="second">{t.teachersPage.secondSemester}</SelectItem>
+                {teachers
+                  .filter((teacher) => isTeacherAssignedToCurrentClass(teacher.id))
+                  .map((teacher) => {
+                    const sub = getSubjectForTeacher(teacher.id)
+                    return (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.name} {sub ? `— ${sub}` : ""}
+                      </SelectItem>
+                    )
+                  })}
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -550,19 +547,18 @@ export default function GradesPage() {
                     <Badge variant="outline" className={`rounded text-[10px] ${classFilterTeacher === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
                       {t.table.actions}: {classFilterTeacher === "all" ? "-" : getTeacherName(classFilterTeacher)}
                     </Badge>
-                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterSubject === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
-                      {gp.subject}: {classFilterSubject === "all" ? "-" : classFilterSubject}
-                    </Badge>
-                    <Badge variant="outline" className={`rounded text-[10px] ${classFilterExamType === "all" ? "border-rose-500/30 text-rose-600 bg-rose-500/5" : "border-primary/30 text-primary bg-primary/5"}`}>
-                      {gp.examType}: {classFilterExamType === "all" ? "-" : getExamTypeLabel(classFilterExamType)}
-                    </Badge>
+                    {classFilterTeacher !== "all" && classFilterSubject !== "all" && (
+                      <Badge variant="outline" className="rounded text-[10px] border-primary/30 text-primary bg-primary/5">
+                        {gp.subject}: {classFilterSubject}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
-              { (classFilterTeacher === "all" || classFilterSubject === "all" || classFilterExamType === "all") && (
+              {classFilterTeacher === "all" && (
                 <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
                   <AlertCircle className="h-4 w-4" />
-                  <span>{t.forms.selectTeacher} + {t.forms.selectSubject}</span>
+                  <span>{t.forms.selectTeacher}</span>
                 </div>
               )}
             </CardContent>
@@ -571,7 +567,13 @@ export default function GradesPage() {
 
         {/* Students List Container */}
         <motion.div variants={itemVariants} className="space-y-4">
-          {studentsInClass.length === 0 ? (
+          {classFilterTeacher === "all" ? (
+            <Card className="bg-muted/20 border border-border/50 p-12 text-center rounded-2xl shadow-sm">
+              <GraduationCap className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-bold text-foreground">{t.forms.selectTeacher}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t.actions.filter}</p>
+            </Card>
+          ) : studentsInClass.length === 0 ? (
             <Card className="bg-card border border-border/50 p-12 text-center rounded-2xl shadow-sm">
               <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm font-bold text-foreground">{gp.noGrades}</p>
@@ -590,9 +592,6 @@ export default function GradesPage() {
                   }
                   if (classFilterSubject !== "all") {
                     studentGrades = studentGrades.filter((g) => g.subject === classFilterSubject)
-                  }
-                  if (classFilterExamType !== "all") {
-                    studentGrades = studentGrades.filter((g) => g.examType === classFilterExamType)
                   }
                   const average =
                     studentGrades.length > 0
@@ -635,11 +634,7 @@ export default function GradesPage() {
                           <Button
                             size="sm"
                             onClick={() => openAddGrade(student)}
-                            disabled={
-                              classFilterTeacher === "all" ||
-                              classFilterSubject === "all" ||
-                              classFilterExamType === "all"
-                            }
+                            disabled={classFilterTeacher === "all"}
                             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-8 text-xs font-bold border-0 disabled:opacity-40 shadow-sm"
                           >
                             <Plus className="h-3.5 w-3.5 ml-1" />
@@ -656,6 +651,7 @@ export default function GradesPage() {
                               <tr className="bg-muted/20 border-b border-border/50">
                                 <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs">{gp.subject}</th>
                                 <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.examType}</th>
+                                <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{t.teachersPage.semester}</th>
                                 <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{t.table.actions}</th>
                                 <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.grade}</th>
                                 <th className="px-5 py-2.5 font-bold text-muted-foreground text-xs text-center">{gp.percentage}</th>
@@ -674,6 +670,15 @@ export default function GradesPage() {
                                       <Badge variant="outline" className="text-[10px] font-bold rounded bg-muted border-border">
                                         {getExamTypeLabel(grade.examType)}
                                       </Badge>
+                                    </td>
+                                    <td className="px-5 py-3 text-center">
+                                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${
+                                        grade.semester === "first"
+                                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      }`}>
+                                        {grade.semester === "first" ? "الأول" : "الثاني"}
+                                      </span>
                                     </td>
                                     <td className="px-5 py-3 text-center text-xs text-muted-foreground">
                                       {getTeacherName(grade.teacherId)}
@@ -746,12 +751,32 @@ export default function GradesPage() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{gp.subject}:</span>
-                  <span className="font-bold text-foreground">{classFilterSubject}</span>
+                  <span className="font-bold text-foreground">{classFilterSubject !== "all" ? classFilterSubject : "—"}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{gp.examType}:</span>
-                  <span className="font-bold text-foreground">{getExamTypeLabel(classFilterExamType)}</span>
+                  <span className="text-muted-foreground">{t.teachersPage.semester}:</span>
+                  <span className="font-bold text-foreground">
+                    {classFilterTeacher !== "all"
+                      ? (getSemesterForTeacher(classFilterTeacher) === "first" ? "الأول" : "الثاني")
+                      : "—"}
+                  </span>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-foreground font-bold text-xs">{gp.examType} *</Label>
+                <Select value={dialogExamType} onValueChange={setDialogExamType}>
+                  <SelectTrigger className="bg-background border-border rounded-xl h-10 text-foreground text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXAM_TYPES.map((et) => (
+                      <SelectItem key={et.value} value={et.value}>
+                        {et.label[language as "ar" | "en"]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-3 gap-3">

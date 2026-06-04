@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
-import { getTeacherProfile, type TeacherProfile } from "@/lib/api/teacher.api"
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from "react"
+import { useTeacherProfile } from "@/lib/hooks/use-teacher-data"
+import type { TeacherProfile } from "@/lib/api/teacher.api"
 
 interface TeacherClassContextValue {
   classes: { id: string; name: string }[]
@@ -9,40 +10,34 @@ interface TeacherClassContextValue {
   setSelectedClassId: (id: string) => void
   profile: TeacherProfile | null
   loading: boolean
-  refresh: () => Promise<void>
 }
 
 const TeacherClassContext = createContext<TeacherClassContextValue | null>(null)
 
 export function TeacherClassProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<TeacherProfile | null>(null)
+  const { data: profile, isLoading } = useTeacherProfile()
   const [selectedClassId, setSelectedClassId] = useState<string>("")
-  const [loading, setLoading] = useState(true)
+  const loading = isLoading
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const p = await getTeacherProfile()
-    setProfile(p)
-    if (p) {
-      // Build unique class list from assignments + direct classes
-      const map = new Map<string, { id: string; name: string }>()
-      p.teacherAssignments?.forEach((a) => {
-        if (a.class) map.set(a.class.id, a.class)
-      })
-      p.classes?.forEach((c) => map.set(c.id, c))
-      const list = Array.from(map.values())
-      // If nothing selected yet, pick first
-      setSelectedClassId((prev) => {
-        if (prev && list.some((c) => c.id === prev)) return prev
-        return list[0]?.id || ""
-      })
-    }
-    setLoading(false)
-  }, [])
+  const classes = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    profile?.teacherAssignments?.forEach((a) => {
+      if (a.class) map.set(a.class.id, a.class)
+    })
+    profile?.classes?.forEach((c) => map.set(c.id, c))
+    return Array.from(map.values())
+  }, [profile])
 
+  // Initialize selection from localStorage or first class
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    if (!classes.length || selectedClassId) return
+    const saved = localStorage.getItem("teacher_selected_class")
+    if (saved && classes.some((c) => c.id === saved)) {
+      setSelectedClassId(saved)
+    } else {
+      setSelectedClassId(classes[0]?.id || "")
+    }
+  }, [classes, selectedClassId])
 
   // Persist selection to localStorage
   useEffect(() => {
@@ -51,18 +46,9 @@ export function TeacherClassProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedClassId])
 
-  const classes = (() => {
-    const map = new Map<string, { id: string; name: string }>()
-    profile?.teacherAssignments?.forEach((a) => {
-      if (a.class) map.set(a.class.id, a.class)
-    })
-    profile?.classes?.forEach((c) => map.set(c.id, c))
-    return Array.from(map.values())
-  })()
-
   return (
     <TeacherClassContext.Provider
-      value={{ classes, selectedClassId, setSelectedClassId, profile, loading, refresh }}
+      value={{ classes, selectedClassId, setSelectedClassId, profile: profile ?? null, loading }}
     >
       {children}
     </TeacherClassContext.Provider>

@@ -1,10 +1,12 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
-import { type Language, translations } from "./translations"
+import { type Language } from "./translations"
+import ar from "./locales/ar"
 
 export type T = {
   nav: Record<string, string>
+  teacherNav: Record<string, string>
   brand: Record<string, string>
   header: Record<string, string>
   user: Record<string, string>
@@ -26,6 +28,7 @@ export type T = {
   qrcodePage: Record<string, string>
   analyticsPage: Record<string, string>
   table: Record<string, string>
+  teacher: Record<string, string>
 }
 
 interface LanguageContextValue {
@@ -40,6 +43,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null)
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar")
+  const [t, setT] = useState<T>(ar as unknown as T)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -47,6 +51,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem("school_language") as Language | null
     if (saved && (saved === "ar" || saved === "en")) {
       setLanguageState(saved)
+      if (saved === "en") {
+        import("./locales/en").then((mod) => {
+          setT(mod.default as unknown as T)
+        })
+      }
     }
   }, [])
 
@@ -59,13 +68,21 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [language, mounted])
 
   function setLanguage(lang: Language) {
-    setLanguageState(lang)
+    if (lang === "ar") {
+      setT(ar as unknown as T)
+      setLanguageState(lang)
+    } else {
+      import("./locales/en").then((mod) => {
+        setT(mod.default as unknown as T)
+        setLanguageState(lang)
+      })
+    }
   }
 
   const value: LanguageContextValue = {
     language,
     setLanguage,
-    t: translations[language] as unknown as T,
+    t,
     dir: language === "ar" ? "rtl" : "ltr",
     isRTL: language === "ar",
   }
@@ -80,7 +97,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 const defaultLangValue: LanguageContextValue = {
   language: "ar",
   setLanguage: () => {},
-  t: translations.ar as unknown as T,
+  t: ar as unknown as T,
   dir: "rtl",
   isRTL: true,
 }

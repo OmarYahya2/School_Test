@@ -1,6 +1,11 @@
 import DashboardShell from "@/components/dashboard-shell"
+import { AdminNotificationProvider } from "@/lib/admin-notification-context"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>
+  return (
+    <AdminNotificationProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </AdminNotificationProvider>
+  )
 }
 

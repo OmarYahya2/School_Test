@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Share2, X, QrCode, Users, Loader2, ShieldCheck } from "lucide-react";
+import { Download, Share2, QrCode, Users, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminClasses } from "@/lib/hooks/use-admin-data";
 import { generateQRToken } from "@/lib/api/qr.api";

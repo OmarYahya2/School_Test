@@ -3,11 +3,12 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { CalendarDays, Clock, BookOpen, GraduationCap, User } from "lucide-react"
-import { useAppTheme } from "@/lib/theme-context"
+import { useTeacherTheme } from "@/lib/teacher-theme-context"
 import { useTeacherClass } from "@/lib/teacher-class-context"
 import ClassSwitcher from "@/components/class-switcher"
 import { useTeacherSchedule } from "@/lib/hooks/use-teacher-data"
 import { SkeletonSchedule } from "@/components/skeletons"
+import { useTeacherLanguage } from "@/lib/teacher-language-context"
 
 const dayNames = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
 
@@ -46,17 +47,18 @@ function getSubjectColor(subject: string) {
 const DAYS = [0, 1, 2, 3, 4]
 
 export default function TeacherSchedulePage() {
-  const { config } = useAppTheme()
+  const { config } = useTeacherTheme()
+  const { t } = useTeacherLanguage()
   const { selectedClassId } = useTeacherClass()
   const { data: schedule = [], isLoading: loading } = useTeacherSchedule()
 
   const tc = {
-    ocean:   { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200" },
-    violet:  { bg: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", border: "border-violet-200" },
-    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", border: "border-emerald-200" },
-    rose:    { bg: "bg-rose-500", text: "text-rose-600", light: "bg-rose-50", border: "border-rose-200" },
-    amber:   { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50", border: "border-amber-200" },
-  }[config.color] || { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200" }
+    ocean:   { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200/50", gradient: "from-blue-400/20 to-sky-300/10" },
+    violet:  { bg: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", border: "border-violet-200/50", gradient: "from-violet-400/20 to-fuchsia-300/10" },
+    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", border: "border-emerald-200/50", gradient: "from-emerald-400/20 to-teal-300/10" },
+    rose:    { bg: "bg-rose-500", text: "text-rose-600", light: "bg-rose-50", border: "border-rose-200/50", gradient: "from-rose-400/20 to-pink-300/10" },
+    amber:   { bg: "bg-amber-500", text: "text-amber-600", light: "bg-amber-50", border: "border-amber-200/50", gradient: "from-amber-400/20 to-orange-300/10" },
+  }[config.color] || { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", border: "border-blue-200/50", gradient: "from-blue-400/20 to-sky-300/10" }
 
   const classSchedule = selectedClassId
     ? schedule.filter((item) => item.class.id === selectedClassId)
@@ -75,46 +77,56 @@ export default function TeacherSchedulePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 border border-slate-200 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-            <CalendarDays className="h-5 w-5" />
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-6">
+        <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${tc.gradient} rounded-full blur-3xl -z-10 opacity-60`} />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tc.light} ${tc.text} shadow-sm`}>
+              <CalendarDays className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-900">{t.teacher.mySchedule}</h1>
+              <p className="text-sm text-slate-500">{t.teacher.scheduleDesc}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900">جدولي الدراسي</h1>
-            <p className="text-sm text-slate-500">الحصص المدرسية المخصصة لك</p>
+          <div className="flex items-center gap-2">
+            <ClassSwitcher />
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ClassSwitcher />
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          { value: stats.totalLessons, label: "إجمالي الحصص", icon: <BookOpen className="h-4 w-4" />, iconBg: "bg-blue-50 text-blue-600" },
-          { value: stats.uniqueSubjects, label: "عدد المواد", icon: <GraduationCap className="h-4 w-4" />, iconBg: "bg-purple-50 text-purple-600" },
-          { value: stats.uniqueClasses, label: "عدد الصفوف", icon: <User className="h-4 w-4" />, iconBg: "bg-amber-50 text-amber-600" },
+          { value: stats.totalLessons, label: t.teacher.totalLessons, icon: <BookOpen className="h-4 w-4" />, iconBg: "bg-blue-50 text-blue-600", glow: "from-blue-400/20 to-sky-300/10" },
+          { value: stats.uniqueSubjects, label: t.teacher.uniqueSubjects, icon: <GraduationCap className="h-4 w-4" />, iconBg: "bg-purple-50 text-purple-600", glow: "from-violet-400/20 to-fuchsia-300/10" },
+          { value: stats.uniqueClasses, label: t.teacher.uniqueClasses, icon: <User className="h-4 w-4" />, iconBg: "bg-amber-50 text-amber-600", glow: "from-amber-400/20 to-orange-300/10" },
         ].map((card, i) => (
-          <div key={i} className="border border-slate-200 bg-white shadow-sm rounded-2xl p-4">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-lg mb-3 ${card.iconBg}`}>
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06 }}
+            className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-4 transition-all duration-300 hover:shadow-lg"
+          >
+            <div className={`absolute top-0 left-0 w-24 h-24 bg-gradient-to-br ${card.glow} rounded-full blur-2xl opacity-30 -z-10`} />
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg mb-3 ${card.iconBg} shadow-sm`}>
               {card.icon}
             </div>
             <p className="text-xl font-black text-slate-900 leading-none">{card.value}</p>
             <p className="text-[11px] font-semibold text-slate-500 mt-1.5">{card.label}</p>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       {/* Schedule Grid */}
-      <div className="border border-slate-200 bg-white shadow-sm rounded-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
+        <div className="p-5 border-b border-white/20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-slate-600" />
             <div>
-              <h3 className="font-bold text-slate-900">الجدول الأسبوعي</h3>
-              <p className="text-xs text-slate-500 mt-0.5">من الأحد إلى الخميس</p>
+              <h3 className="font-bold text-slate-900">{t.teacher.weeklySchedule}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{t.teacher.sunToThu}</p>
             </div>
           </div>
         </div>
@@ -124,16 +136,16 @@ export default function TeacherSchedulePage() {
             <div className="overflow-x-auto">
               <div className="min-w-[900px] space-y-1.5">
                 <div className="grid grid-cols-9 gap-1.5">
-                  <div className="h-12 animate-pulse bg-slate-100 rounded-xl" />
+                  <div className="h-12 animate-pulse bg-slate-100/70 rounded-xl backdrop-blur-sm" />
                   {DEFAULT_PERIODS.map((_, i) => (
-                    <div key={i} className="h-12 animate-pulse bg-slate-100 rounded-xl" />
+                    <div key={i} className="h-12 animate-pulse bg-slate-100/70 rounded-xl backdrop-blur-sm" />
                   ))}
                 </div>
                 {Array.from({ length: 5 }).map((_, r) => (
                   <div key={r} className="grid grid-cols-9 gap-1.5">
-                    <div className="h-[72px] animate-pulse bg-slate-100 rounded-xl" />
+                    <div className="h-[72px] animate-pulse bg-slate-100/70 rounded-xl backdrop-blur-sm" />
                     {DEFAULT_PERIODS.map((_, c) => (
-                      <div key={c} className="h-[72px] animate-pulse bg-slate-100 rounded-xl opacity-50" />
+                      <div key={c} className="h-[72px] animate-pulse bg-slate-100/70 rounded-xl backdrop-blur-sm opacity-50" />
                     ))}
                   </div>
                 ))}
@@ -144,11 +156,11 @@ export default function TeacherSchedulePage() {
               <div className="min-w-[900px]">
                 {/* Header Row */}
                 <div className="grid grid-cols-9 gap-1.5 mb-1.5">
-                  <div className="p-2.5 text-center font-bold text-slate-500 bg-slate-50 rounded-xl text-xs">
+                  <div className="p-2.5 text-center font-bold text-slate-500 bg-white/50 rounded-xl text-xs border border-white/20">
                     اليوم / الحصة
                   </div>
                   {DEFAULT_PERIODS.map((period) => (
-                    <div key={period.number} className="p-2.5 text-center font-bold text-slate-700 bg-slate-50 rounded-xl">
+                    <div key={period.number} className="p-2.5 text-center font-bold text-slate-700 bg-white/50 rounded-xl border border-white/20">
                       <div className="text-xs">حصة {period.number}</div>
                       <div className="text-[9px] text-slate-500 mt-0.5 font-mono">{period.start}-{period.end}</div>
                     </div>
@@ -159,7 +171,7 @@ export default function TeacherSchedulePage() {
                 <div className="space-y-1.5">
                   {DAYS.map((dayId) => (
                     <div key={dayId} className="grid grid-cols-9 gap-1.5">
-                      <div className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-center text-xs font-bold text-slate-700">
+                      <div className="p-2.5 bg-white/50 rounded-xl flex items-center justify-center text-xs font-bold text-slate-700 border border-white/20">
                         {dayNames[dayId]}
                       </div>
 
@@ -170,10 +182,10 @@ export default function TeacherSchedulePage() {
                         return (
                           <div
                             key={`${dayId}-${period.number}`}
-                            className={`p-2 rounded-xl border min-h-[72px] transition-all ${
+                            className={`p-2 rounded-xl border min-h-[72px] transition-all backdrop-blur-sm ${
                               item
-                                ? `${colors?.bg} ${colors?.border} ${colors?.text}`
-                                : "border-dashed border-slate-200 bg-slate-50/50"
+                                ? `${colors?.bg} ${colors?.border} ${colors?.text} shadow-sm`
+                                : "border-dashed border-white/30 bg-white/30"
                             }`}
                           >
                             {item ? (

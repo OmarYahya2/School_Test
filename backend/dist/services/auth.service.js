@@ -80,19 +80,7 @@ class AuthService {
         if (!user) {
             throw { status: 400, message: "Invalid email or password" };
         }
-        let isMatch = await (0, password_utils_1.comparePasswords)(password, user.password);
-        // Fallback: if password is stored in plain text (not a bcrypt hash), compare directly
-        // and re-hash it automatically for next login
-        if (!isMatch && !user.password.startsWith("$2")) {
-            if (user.password === password) {
-                const hashed = await (0, password_utils_1.hashPassword)(password);
-                await prisma_1.prisma.user.update({
-                    where: { id: user.id },
-                    data: { password: hashed },
-                });
-                isMatch = true;
-            }
-        }
+        const isMatch = await (0, password_utils_1.comparePasswords)(password, user.password);
         if (!isMatch) {
             throw { status: 400, message: "Invalid email or password" };
         }

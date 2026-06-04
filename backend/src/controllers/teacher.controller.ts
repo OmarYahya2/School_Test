@@ -182,4 +182,24 @@ export class TeacherController {
       next(error);
     }
   }
+
+  static async updateFile(req: RequestWithUser, res: Response, next: NextFunction) {
+    try {
+      if (!req.teacher) return res.status(403).json({ success: false, message: "Teacher profile not found" });
+      const file = await TeacherDashboardService.updateFileForTeacher(req.teacher.id, req.params.id, req.body);
+      return sendSuccess(res, file, "File updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteFile(req: RequestWithUser, res: Response, next: NextFunction) {
+    try {
+      if (!req.teacher) return res.status(403).json({ success: false, message: "Teacher profile not found" });
+      await TeacherDashboardService.deleteFileForTeacher(req.teacher.id, req.params.id);
+      return sendSuccess(res, null, "File deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
 }

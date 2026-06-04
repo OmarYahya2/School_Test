@@ -4,8 +4,7 @@ import type { AttendanceRecord } from "../store";
 export async function fetchAttendanceByClassRaw(classId: string): Promise<AttendanceRecord[]> {
   try {
     return await client.get<AttendanceRecord[]>(`/attendance/class/${classId}`);
-  } catch (error: any) {
-    console.error("fetchAttendanceByClassRaw error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
@@ -21,8 +20,7 @@ export async function saveAttendanceRecord(
       date,
       records,
     });
-  } catch (error: any) {
-    console.error("saveAttendanceRecord error:", error?.message || error?.status || error);
+  } catch {
     return null;
   }
 }
@@ -38,15 +36,15 @@ export async function fetchAttendanceByStudent(
     // Let's implement student attendance lookup by querying the backend.
     // Wait, let's look at the student's details to get their classId, then fetch that class's attendance!
     // That's very clean and works without loading all attendance records in the database.
-    const student = await client.get<any>(`/students/${studentId}`);
+    const student = await client.get<{ id: string; classId: string } | null>(`/students/${studentId}`);
     if (!student || !student.classId) return [];
     
     const attendanceRecords = await fetchAttendanceByClassRaw(student.classId);
     
     const studentRecords: { date: string; present: boolean }[] = [];
     attendanceRecords.forEach((record) => {
-      const records = (record.records as any) || [];
-      const studentRecord = records.find((r: any) => r.studentId === studentId);
+      const records = record.records;
+      const studentRecord = records.find((r) => r.studentId === studentId);
       if (studentRecord) {
         studentRecords.push({
           date: record.date,
@@ -56,8 +54,7 @@ export async function fetchAttendanceByStudent(
     });
     
     return studentRecords;
-  } catch (error: any) {
-    console.error("fetchAttendanceByStudent error:", error?.message || error?.status || error);
+  } catch {
     return [];
   }
 }
